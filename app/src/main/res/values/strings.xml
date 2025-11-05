@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OpenTube</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">Inicio</string>
+    <string name="nav_trending">Tendencias</string>
+    <string name="nav_subscriptions">Suscripciones</string>
+    <string name="nav_library">Biblioteca</string>
+    <string name="nav_search">Buscar</string>
+    
+    <!-- Actions -->
+    <string name="action_search">Buscar</string>
+    <string name="action_share">Compartir</string>
+    <string name="action_download">Descargar</string>
+    <string name="action_add_to_playlist">Agregar a playlist</string>
+    <string name="action_subscribe">Suscribirse</string>
+    <string name="action_unsubscribe">Desuscribirse</string>
+    
+    <!-- Video Player -->
+    <string name="player_play">Reproducir</string>
+    <string name="player_pause">Pausar</string>
+    <string name="player_next">Siguiente</string>
+    <string name="player_previous">Anterior</string>
+    <string name="player_quality">Calidad</string>
+    <string name="player_speed">Velocidad</string>
+    <string name="player_fullscreen">Pantalla completa</string>
+    
+    <!-- Errors -->
+    <string name="error_loading">Error al cargar</string>
+    <string name="error_network">Error de red</string>
+    <string name="error_no_videos">No hay videos disponibles</string>
+    
+    <!-- Common -->
+    <string name="loading">Cargando…</string>
+    <string name="retry">Reintentar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="ok">Aceptar</string>
+    
+    <!-- Video Info -->
+    <string name="views_count">%1$s visualizaciones</string>
+    <string name="subscribers_count">%1$s suscriptores</string>
+    <string name="video_duration">%1$s</string>
+</resources>
