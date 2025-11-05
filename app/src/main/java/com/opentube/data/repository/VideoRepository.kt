@@ -29,6 +29,30 @@ class VideoRepository @Inject constructor(
     }
     
     /**
+     * Get gaming videos
+     */
+    fun getGamingVideos(): Flow<Result<List<Video>>> = flow {
+        val result = newPipeHelper.getGamingVideos()
+        emit(result)
+    }
+    
+    /**
+     * Get music videos
+     */
+    fun getMusicVideos(): Flow<Result<List<Video>>> = flow {
+        val result = newPipeHelper.getMusicVideos()
+        emit(result)
+    }
+    
+    /**
+     * Get live videos
+     */
+    fun getLiveVideos(): Flow<Result<List<Video>>> = flow {
+        val result = newPipeHelper.getLiveVideos()
+        emit(result)
+    }
+    
+    /**
      * Get video details usando NewPipe
      */
     fun getVideoDetails(videoId: String): Flow<Result<VideoDetails>> = flow {

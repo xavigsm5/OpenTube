@@ -27,7 +27,10 @@ object DatabaseModule {
             OpenTubeDatabase::class.java,
             OpenTubeDatabase.DATABASE_NAME
         )
-            .addMigrations(OpenTubeDatabase.MIGRATION_1_2)
+            .addMigrations(
+                OpenTubeDatabase.MIGRATION_1_2,
+                OpenTubeDatabase.MIGRATION_2_3
+            )
             .fallbackToDestructiveMigration()
             .build()
     }
@@ -54,5 +57,11 @@ object DatabaseModule {
     @Singleton
     fun providePlaylistDao(database: OpenTubeDatabase): PlaylistDao {
         return database.playlistDao()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideLikedCommentsDao(database: OpenTubeDatabase): LikedCommentsDao {
+        return database.likedCommentsDao()
     }
 }

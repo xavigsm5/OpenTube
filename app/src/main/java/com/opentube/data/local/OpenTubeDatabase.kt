@@ -14,9 +14,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         FavoriteEntity::class,
         SubscriptionEntity::class,
         PlaylistEntity::class,
-        PlaylistVideoEntity::class
+        PlaylistVideoEntity::class,
+        LikedCommentEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class OpenTubeDatabase : RoomDatabase() {
@@ -24,6 +25,7 @@ abstract class OpenTubeDatabase : RoomDatabase() {
     abstract fun favoriteDao(): FavoriteDao
     abstract fun subscriptionDao(): SubscriptionDao
     abstract fun playlistDao(): PlaylistDao
+    abstract fun likedCommentsDao(): LikedCommentsDao
     
     companion object {
         const val DATABASE_NAME = "opentube_database"
@@ -39,6 +41,22 @@ abstract class OpenTubeDatabase : RoomDatabase() {
                 
                 // Add isVerified column with default value 0 (false)
                 db.execSQL("ALTER TABLE subscriptions ADD COLUMN isVerified INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+        
+        /**
+         * Migration from version 2 to 3
+         * Adds liked_comments table
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS liked_comments (
+                        commentId TEXT NOT NULL PRIMARY KEY,
+                        videoId TEXT NOT NULL,
+                        likedAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
             }
         }
     }

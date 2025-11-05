@@ -1,5 +1,7 @@
 package com.opentube.ui.screens.player
 
+import android.text.Html
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,6 +10,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,70 +40,87 @@ fun CommentsSection(
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showComments by remember { mutableStateOf(true) }
+    
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(16.dp)
     ) {
-        // Encabezado
+        // Encabezado con botón para mostrar/ocultar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp),
+                .clickable { showComments = !showComments }
+                .padding(bottom = if (showComments) 16.dp else 0.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Comentarios",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            if (comments.isNotEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = formatCount(comments.size.toLong()),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "Comentarios",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
+                if (comments.isNotEmpty()) {
+                    Text(
+                        text = formatCount(comments.size.toLong()),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
+            
+            Icon(
+                imageVector = if (showComments) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = if (showComments) "Ocultar comentarios" else "Mostrar comentarios",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         
-        if (isLoading && comments.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else if (comments.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No hay comentarios disponibles",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            // Lista de comentarios
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                comments.take(5).forEach { comment ->
-                    CommentItem(comment = comment)
+        // Contenido de comentarios (solo si showComments es true)
+        if (showComments) {
+            if (isLoading && comments.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
                 }
-                
-                if (comments.size > 5) {
-                    FilledTonalButton(
-                        onClick = onLoadMore,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp)
-                    ) {
-                        Text("Ver más comentarios (${comments.size - 5})")
+            } else if (comments.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No hay comentarios disponibles",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                // Lista de comentarios
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    comments.take(5).forEach { comment ->
+                        CommentItem(comment = comment)
+                    }
+                    
+                    if (comments.size > 5) {
+                        FilledTonalButton(
+                            onClick = onLoadMore,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp)
+                        ) {
+                            Text("Ver más comentarios (${comments.size - 5})")
+                        }
                     }
                 }
             }
@@ -176,9 +197,13 @@ private fun CommentItem(
                     )
                 }
                 
-                // Texto del comentario
+                // Texto del comentario (limpiar HTML)
+                val cleanText = remember(comment.text) {
+                    Html.fromHtml(comment.text, Html.FROM_HTML_MODE_COMPACT).toString().trim()
+                }
+                
                 Text(
-                    text = comment.text,
+                    text = cleanText,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = if (expanded) Int.MAX_VALUE else 3,
@@ -186,7 +211,7 @@ private fun CommentItem(
                 )
                 
                 // Ver más/menos si el texto es largo
-                if (comment.text.length > 150) {
+                if (cleanText.length > 150) {
                     TextButton(
                         onClick = { expanded = !expanded },
                         contentPadding = PaddingValues(0.dp)
@@ -227,11 +252,7 @@ private fun CommentItem(
                             onClick = { showReplies = !showReplies },
                             label = {
                                 Text(
-                                    text = if (showReplies) {
-                                        "Ocultar respuestas"
-                                    } else {
-                                        "${comment.replyCount} ${if (comment.replyCount == 1) "respuesta" else "respuestas"}"
-                                    },
+                                    text = "${comment.replyCount} ${if (comment.replyCount == 1) "respuesta" else "respuestas"}",
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                             }
@@ -239,7 +260,7 @@ private fun CommentItem(
                     }
                 }
                 
-                // Mostrar mensaje de respuestas (placeholder para futura implementación)
+                // Mensaje de respuestas próximamente
                 if (showReplies && comment.replyCount > 0 && !isReply) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Card(
@@ -255,14 +276,9 @@ private fun CommentItem(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Cargando ${comment.replyCount} ${if (comment.replyCount == 1) "respuesta" else "respuestas"}...",
-                                style = MaterialTheme.typography.bodySmall,
+                                text = "🚧 Respuestas próximamente",
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }

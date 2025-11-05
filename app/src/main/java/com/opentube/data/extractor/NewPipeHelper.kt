@@ -145,6 +145,51 @@ class NewPipeHelper @Inject constructor(
     }
     
     /**
+     * Obtener videos de Gaming
+     */
+    suspend fun getGamingVideos(): Result<List<Video>> = withContext(Dispatchers.IO) {
+        try {
+            // Buscar videos de gaming populares
+            val searchResults = searchVideos("gaming highlights gameplay")
+            searchResults.getOrNull()?.take(30)?.let { videos ->
+                Result.success(videos.filter { it.views > 10000 })
+            } ?: Result.failure(Exception("No se pudieron cargar videos de gaming"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Obtener videos de Música
+     */
+    suspend fun getMusicVideos(): Result<List<Video>> = withContext(Dispatchers.IO) {
+        try {
+            // Buscar videos musicales populares
+            val searchResults = searchVideos("music video official")
+            searchResults.getOrNull()?.take(30)?.let { videos ->
+                Result.success(videos.filter { it.views > 10000 })
+            } ?: Result.failure(Exception("No se pudieron cargar videos de música"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Obtener videos en vivo
+     */
+    suspend fun getLiveVideos(): Result<List<Video>> = withContext(Dispatchers.IO) {
+        try {
+            val searchResults = searchVideos("live")
+            searchResults.getOrNull()?.let { videos ->
+                // Filtrar solo videos en vivo
+                Result.success(videos.filter { it.isLive })
+            } ?: Result.failure(Exception("No se pudieron cargar videos en vivo"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
      * Obtener sugerencias de búsqueda
      */
     suspend fun getSearchSuggestions(query: String): Result<List<String>> = withContext(Dispatchers.IO) {

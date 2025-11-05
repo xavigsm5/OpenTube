@@ -107,3 +107,22 @@ interface PlaylistDao {
     @Query("DELETE FROM playlist_videos WHERE playlistId = :playlistId")
     suspend fun deleteAllPlaylistVideos(playlistId: Long)
 }
+
+/**
+ * DAO for liked comments
+ */
+@Dao
+interface LikedCommentsDao {
+    
+    @Query("SELECT * FROM liked_comments WHERE videoId = :videoId")
+    fun getLikedCommentsByVideo(videoId: String): Flow<List<LikedCommentEntity>>
+    
+    @Query("SELECT * FROM liked_comments WHERE commentId = :commentId")
+    suspend fun isCommentLiked(commentId: String): LikedCommentEntity?
+    
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun likeComment(comment: LikedCommentEntity)
+    
+    @Query("DELETE FROM liked_comments WHERE commentId = :commentId")
+    suspend fun unlikeComment(commentId: String)
+}

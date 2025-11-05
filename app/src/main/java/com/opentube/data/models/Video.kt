@@ -43,7 +43,14 @@ data class Video(
     val isLive: Boolean = false
 ) {
     val videoId: String
-        get() = url.substringAfter("/watch?v=")
+        get() {
+            return when {
+                url.contains("/watch?v=") -> url.substringAfter("/watch?v=").substringBefore("&")
+                url.contains("/shorts/") -> url.substringAfter("/shorts/").substringBefore("?")
+                url.contains("youtu.be/") -> url.substringAfter("youtu.be/").substringBefore("?")
+                else -> url.substringAfter("/watch?v=").substringBefore("&")
+            }
+        }
 }
 
 /**

@@ -57,16 +57,15 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = HomeUiState.Loading
             
-            // Por ahora todas cargan trending, pero puedes extenderlo
-            val region = when (category) {
-                HomeCategory.TRENDING -> "US"
-                HomeCategory.GAMING -> "US" // Podrías filtrar por gaming
-                HomeCategory.MUSIC -> "US"  // Podrías filtrar por música
-                HomeCategory.LIVE -> "US"   // Podrías filtrar por en vivo
+            val result = when (category) {
+                HomeCategory.TRENDING -> videoRepository.getTrending()
+                HomeCategory.GAMING -> videoRepository.getGamingVideos()
+                HomeCategory.MUSIC -> videoRepository.getMusicVideos()
+                HomeCategory.LIVE -> videoRepository.getLiveVideos()
             }
             
-            videoRepository.getTrending(region).collect { result ->
-                _uiState.value = result.fold(
+            result.collect { videoResult ->
+                _uiState.value = videoResult.fold(
                     onSuccess = { videos ->
                         HomeUiState.Success(videos, currentCategory)
                     },

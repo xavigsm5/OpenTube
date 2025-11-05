@@ -76,3 +76,14 @@ data class PlaylistVideoEntity(
     val position: Int = 0, // Order in playlist
     val addedAt: Long = System.currentTimeMillis()
 )
+
+/**
+ * Liked comments
+ */
+@Entity(tableName = "liked_comments")
+data class LikedCommentEntity(
+    @PrimaryKey
+    val commentId: String,
+    val videoId: String,
+    val likedAt: Long = System.currentTimeMillis()
+)
