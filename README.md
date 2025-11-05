@@ -170,7 +170,7 @@ Tu privacidad es nuestra prioridad:
 
 ```
 OpenTube - Cliente de YouTube libre y de código abierto
-Copyright (C) 2024  OpenTube Contributors
+Copyright (C) 2025  OpenTube Contributors
 
 Este programa es software libre: puedes redistribuirlo y/o modificarlo
 bajo los términos de la Licencia Pública General GNU publicada por
