@@ -192,16 +192,39 @@ fun VideoPlayerScreen(
                 // Reutilizar player del mini reproductor si existe
                 val player = if (existingPlayer != null && exoPlayer == null) {
                     android.util.Log.d("VideoPlayerScreen", "Usando player del mini reproductor")
-                    existingPlayer
+                    existingPlayer.apply {
+                        // Asegurar scaling mode correcto
+                        videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+                    }
                 } else if (exoPlayer != null) {
                     android.util.Log.d("VideoPlayerScreen", "Reutilizando player actual")
-                    exoPlayer!!
+                    exoPlayer!!.apply {
+                        // Asegurar scaling mode correcto
+                        videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+                    }
                 } else {
                     android.util.Log.d("VideoPlayerScreen", "Creando nuevo player")
                     val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(context)
                     ExoPlayer.Builder(context)
                         .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory))
                         .build()
+                        .apply {
+                            // Configurar el scaling mode para evitar crop
+                            videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+                            
+                            // Agregar listener para monitorear cambios de video
+                            addListener(object : Player.Listener {
+                                override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                                    android.util.Log.d("VideoPlayerScreen", 
+                                        "Video size changed: ${videoSize.width}x${videoSize.height}, " +
+                                        "pixelWidthHeightRatio: ${videoSize.pixelWidthHeightRatio}, " +
+                                        "rotation: ${videoSize.unappliedRotationDegrees}")
+                                    
+                                    // Forzar scaling mode después de cambio de tamaño
+                                    videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+                                }
+                            })
+                        }
                 }
                 
                 android.util.Log.d("VideoPlayerScreen", "Inicializando player para video: $videoId")
@@ -401,8 +424,17 @@ fun VideoPlayerScreen(
                 // Video player
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(if (isFullscreen) 16f / 9f else 16f / 9f)
+                        .then(
+                            if (isFullscreen) {
+                                // En fullscreen, usar toda la pantalla disponible
+                                Modifier.fillMaxSize()
+                            } else {
+                                // En portrait, mantener aspect ratio 16:9
+                                Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(16f / 9f)
+                            }
+                        )
                         .background(androidx.compose.ui.graphics.Color.Black)
                         .pointerInput(Unit) {
                             detectVerticalDragGestures(
@@ -440,23 +472,100 @@ fun VideoPlayerScreen(
                         }
                 ) {
                     // ExoPlayer view
+                    var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+                    
+                    // Obtener el resize mode del estado
+                    val resizeMode = (uiState as? VideoPlayerUiState.Success)?.playerSettings?.resizeMode ?: 0
+                    
+                    // Forzar resize mode continuamente para prevenir cambios automáticos
+                    LaunchedEffect(exoPlayer, isFullscreen, resizeMode) {
+                        val actualResizeMode = when(resizeMode) {
+                            0 -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            1 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                            2 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            3 -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH
+                            4 -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT
+                            else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        }
+                        
+                        while (isActive) {
+                            playerViewRef?.let { pv ->
+                                // Forzar el resize mode seleccionado
+                                if (pv.resizeMode != actualResizeMode) {
+                                    pv.resizeMode = actualResizeMode
+                                    android.util.Log.d("VideoPlayerScreen", "Aplicando resizeMode: $resizeMode ($actualResizeMode)")
+                                }
+                                pv.scaleX = 1f
+                                pv.scaleY = 1f
+                            }
+                            delay(100) // Revisar cada 100ms
+                        }
+                    }
+                    
                     AndroidView(
                         factory = { context ->
+                            val mode = when(resizeMode) {
+                                0 -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                1 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                                2 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                                3 -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH
+                                4 -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT
+                                else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            }
+                            
                             PlayerView(context).apply {
                                 player = exoPlayer
                                 useController = false
-                                // Modo FIT: mantiene proporción del video sin recortar
-                                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                
+                                // FORZAR uso de SurfaceView (mejor manejo de aspect ratio)
+                                // 0 = SurfaceView, 1 = TextureView, 2 = SphericalGLSurfaceView, 3 = VideoDecoderGLSurfaceView
+                                // Usamos reflection porque el método no es público
+                                try {
+                                    val method = PlayerView::class.java.getDeclaredMethod("setShutterBackgroundColor", Int::class.javaPrimitiveType)
+                                    method.isAccessible = true
+                                } catch (e: Exception) {
+                                    android.util.Log.w("VideoPlayerScreen", "No se pudo configurar shutter color", e)
+                                }
+                                
+                                // CRITICAL: Configuración para prevenir crop
+                                this.resizeMode = mode
+                                
+                                // Configuración adicional
+                                setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+                                controllerShowTimeoutMs = 3000
+                                controllerHideOnTouch = false
+                                keepScreenOn = true
+                                
+                                // Forzar que use el tamaño exacto sin transformaciones
                                 layoutParams = FrameLayout.LayoutParams(
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                     ViewGroup.LayoutParams.MATCH_PARENT
                                 )
+                                
+                                playerViewRef = this
                             }
                         },
                         update = { playerView ->
+                            val mode = when(resizeMode) {
+                                0 -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                1 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                                2 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                                3 -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH
+                                4 -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT
+                                else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            }
+                            
                             playerView.player = exoPlayer
-                            // Forzar FIT siempre, especialmente en pantalla completa
-                            playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            // CRÍTICO: Aplicar resize mode desde el estado
+                            playerView.resizeMode = mode
+                            // Asegurar que no haya escala aplicada
+                            playerView.scaleX = 1f
+                            playerView.scaleY = 1f
+                            
+                            // Forzar invalidación para refrescar el render
+                            playerView.invalidate()
+                            
+                            playerViewRef = playerView
                         },
                         modifier = Modifier.fillMaxSize()
                     )
@@ -491,9 +600,13 @@ fun VideoPlayerScreen(
                         onSettingsClick = {
                             viewModel.showSettingsSheet()
                         },
+                        onResizeModeClick = {
+                            viewModel.cycleResizeMode()
+                        },
                         isFullscreen = isFullscreen,
                         visible = showControls,
-                        videoTitle = videoDetails.title
+                        videoTitle = videoDetails.title,
+                        resizeMode = resizeMode
                     )
                 }
                 

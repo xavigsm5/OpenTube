@@ -26,7 +26,8 @@ data class PlayerSettings(
     val playbackSpeed: Float = 1.0f,
     val subtitlesEnabled: Boolean = false,
     val isFullscreen: Boolean = false,
-    val showControls: Boolean = true
+    val showControls: Boolean = true,
+    val resizeMode: Int = 0 // 0=FIT, 1=FILL, 2=ZOOM, 3=FIXED_WIDTH, 4=FIXED_HEIGHT
 )
 
 sealed interface VideoPlayerUiState {
@@ -215,6 +216,19 @@ class VideoPlayerViewModel @Inject constructor(
                     showControls = !currentState.playerSettings.showControls
                 )
             )
+        }
+    }
+    
+    fun cycleResizeMode() {
+        val currentState = _uiState.value
+        if (currentState is VideoPlayerUiState.Success) {
+            val nextMode = (currentState.playerSettings.resizeMode + 1) % 5
+            _uiState.value = currentState.copy(
+                playerSettings = currentState.playerSettings.copy(
+                    resizeMode = nextMode
+                )
+            )
+            android.util.Log.d("VideoPlayerViewModel", "Resize mode changed to: $nextMode")
         }
     }
     

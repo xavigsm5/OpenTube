@@ -86,6 +86,7 @@ fun MiniPlayer(
                             factory = { context ->
                                 PlayerView(context).apply {
                                     useController = false
+                                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                                     layoutParams = FrameLayout.LayoutParams(
                                         ViewGroup.LayoutParams.MATCH_PARENT,
                                         ViewGroup.LayoutParams.MATCH_PARENT
@@ -95,6 +96,7 @@ fun MiniPlayer(
                             update = { playerView ->
                                 // Actualizar el player cada vez que cambia el estado
                                 playerView.player = state.player
+                                playerView.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                             },
                             modifier = Modifier.fillMaxSize()
                         )

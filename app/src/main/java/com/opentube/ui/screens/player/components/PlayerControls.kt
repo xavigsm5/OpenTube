@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun PlayerControls(
@@ -40,7 +41,9 @@ fun PlayerControls(
     isFullscreen: Boolean,
     visible: Boolean,
     modifier: Modifier = Modifier,
-    videoTitle: String = ""
+    videoTitle: String = "",
+    resizeMode: Int = 0,
+    onResizeModeClick: () -> Unit = {}
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -82,6 +85,34 @@ fun PlayerControls(
                     )
                     
                     Spacer(modifier = Modifier.width(12.dp))
+                    
+                    // Botón de aspect ratio / resize mode
+                    IconButton(
+                        onClick = onResizeModeClick,
+                        modifier = Modifier
+                            .background(
+                                color = Color.Black.copy(alpha = 0.4f),
+                                shape = CircleShape
+                            )
+                    ) {
+                        // Icono según el modo actual
+                        val resizeIcon = when(resizeMode) {
+                            0 -> "FIT" // Fit
+                            1 -> "FILL" // Fill
+                            2 -> "ZOOM" // Zoom
+                            3 -> "W" // Fixed width
+                            4 -> "H" // Fixed height
+                            else -> "FIT"
+                        }
+                        Text(
+                            text = resizeIcon,
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 10.sp
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
                     
                     // Botón de ajustes
                     IconButton(
