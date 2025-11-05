@@ -455,6 +455,8 @@ fun VideoPlayerScreen(
                         },
                         update = { playerView ->
                             playerView.player = exoPlayer
+                            // Forzar FIT siempre, especialmente en pantalla completa
+                            playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                         },
                         modifier = Modifier.fillMaxSize()
                     )

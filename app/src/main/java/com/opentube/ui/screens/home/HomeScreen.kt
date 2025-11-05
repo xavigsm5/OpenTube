@@ -2,6 +2,7 @@ package com.opentube.ui.screens.home
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
@@ -77,16 +78,38 @@ fun HomeScreen(
                 is HomeUiState.Success -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        // Tarjetas de categorías
+                        item {
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(HomeCategory.values()) { category ->
+                                    FilterChip(
+                                        selected = state.selectedCategory == category,
+                                        onClick = { viewModel.selectCategory(category) },
+                                        label = { Text(category.displayName) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Lista de videos
                         items(
                             items = state.videos,
                             key = { it.url }
                         ) { video ->
                             VideoCard(
                                 video = video,
-                                onClick = { onVideoClick(video.videoId) }
+                                onClick = { onVideoClick(video.videoId) },
+                                modifier = Modifier.padding(horizontal = 16.dp)
                             )
                         }
                     }
