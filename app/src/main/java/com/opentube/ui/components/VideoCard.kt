@@ -82,6 +82,24 @@ fun VideoCard(
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
+                } else if (video.duration == 0L || video.duration < 0) {
+                    // For live streams with no duration info
+                    if (video.isLive) {
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(8.dp),
+                            color = androidx.compose.ui.graphics.Color(0xFFFF6B6B).copy(alpha = 0.9f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "EN DIRECTO",
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = androidx.compose.ui.graphics.Color.White
+                            )
+                        }
+                    }
                 }
             }
             
@@ -127,7 +145,7 @@ fun VideoCard(
                         text = buildString {
                             append(formatViews(video.views))
                             append(" • ")
-                            append(video.uploadedDate ?: "")
+                            append(com.opentube.util.DateFormatter.formatUploadDate(video.uploadedDate))
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -204,7 +222,7 @@ fun VideoListItem(
             )
             
             Text(
-                text = "${formatViews(video.views)} • ${video.uploadedDate ?: ""}",
+                text = "${formatViews(video.views)} • ${com.opentube.util.DateFormatter.formatUploadDate(video.uploadedDate)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

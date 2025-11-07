@@ -133,6 +133,81 @@ private val RedColorScheme = darkColorScheme(
     onSurfaceVariant = Color(0xFFFFCDD2)
 )
 
+// Pink Theme (Rosa suave)
+private val PinkColorScheme = darkColorScheme(
+    primary = PrimaryRosa,
+    onPrimary = OnPrimaryRosa,
+    primaryContainer = PrimaryContainerRosa,
+    onPrimaryContainer = OnPrimaryContainerRosa,
+    secondary = SecondaryRosa,
+    onSecondary = OnSecondaryRosa,
+    secondaryContainer = SecondaryContainerRosa,
+    onSecondaryContainer = OnSecondaryContainerRosa,
+    tertiary = TertiaryRosa,
+    onTertiary = OnTertiaryRosa,
+    tertiaryContainer = TertiaryContainerRosa,
+    onTertiaryContainer = OnTertiaryContainerRosa,
+    background = BackgroundDarkRosa,
+    onBackground = OnBackgroundDarkRosa,
+    surface = SurfaceDarkRosa,
+    onSurface = OnSurfaceDarkRosa,
+    surfaceVariant = SurfaceVariantDarkRosa,
+    onSurfaceVariant = OnSurfaceVariantDarkRosa,
+    outline = OutlineDarkRosa,
+    error = Color(0xFFCF6679),
+    onError = Color(0xFF000000)
+)
+
+// Light Green Theme (Verde claro suave)
+private val LightGreenColorScheme = lightColorScheme(
+    primary = PrimaryVerdeClaro,
+    onPrimary = OnPrimarySuave,
+    primaryContainer = PrimaryContainerVerdeClaro,
+    onPrimaryContainer = OnPrimaryContainerSuave,
+    secondary = SecondaryVerdeClaro,
+    onSecondary = OnSecondarySuave,
+    secondaryContainer = SecondaryContainerVerdeClaro,
+    onSecondaryContainer = OnSecondaryContainerSuave,
+    tertiary = TertiaryVerdeClaro,
+    onTertiary = OnTertiarySuave,
+    tertiaryContainer = TertiaryContainerVerdeClaro,
+    onTertiaryContainer = OnTertiaryContainerSuave,
+    background = BackgroundLightSuave,
+    onBackground = OnBackgroundLightSuave,
+    surface = SurfaceLightSuave,
+    onSurface = OnSurfaceLightSuave,
+    surfaceVariant = SurfaceVariantLightSuave,
+    onSurfaceVariant = OnSurfaceVariantLightSuave,
+    outline = OutlineLightSuave,
+    error = Color(0xFFD32F2F),
+    onError = Color(0xFFFFFFFF)
+)
+
+// Dark Green Theme (Verde Spotify oscuro)
+private val DarkGreenSpotifyColorScheme = darkColorScheme(
+    primary = PrimaryVerdeClaro,
+    onPrimary = OnPrimarySuave,
+    primaryContainer = PrimaryContainerVerdeClaro,
+    onPrimaryContainer = OnPrimaryContainerSuave,
+    secondary = SecondaryVerdeClaro,
+    onSecondary = OnSecondarySuave,
+    secondaryContainer = SecondaryContainerVerdeClaro,
+    onSecondaryContainer = OnSecondaryContainerSuave,
+    tertiary = TertiaryVerdeClaro,
+    onTertiary = OnTertiarySuave,
+    tertiaryContainer = TertiaryContainerVerdeClaro,
+    onTertiaryContainer = OnTertiaryContainerSuave,
+    background = BackgroundDarkSuave,
+    onBackground = OnBackgroundDarkSuave,
+    surface = SurfaceDarkSuave,
+    onSurface = OnSurfaceDarkSuave,
+    surfaceVariant = SurfaceVariantDarkSuave,
+    onSurfaceVariant = OnSurfaceVariantDarkSuave,
+    outline = OutlineDarkSuave,
+    error = Color(0xFFCF6679),
+    onError = Color(0xFF000000)
+)
+
 @Composable
 fun OpenTubeTheme(
     themeMode: com.opentube.ui.screens.settings.ThemeMode = com.opentube.ui.screens.settings.ThemeMode.DARK,
@@ -155,12 +230,15 @@ fun OpenTubeTheme(
         com.opentube.ui.screens.settings.ThemeMode.BLUE -> BlueColorScheme
         com.opentube.ui.screens.settings.ThemeMode.SKY_BLUE -> SkyBlueColorScheme
         com.opentube.ui.screens.settings.ThemeMode.RED -> RedColorScheme
+        com.opentube.ui.screens.settings.ThemeMode.PINK -> PinkColorScheme
+        com.opentube.ui.screens.settings.ThemeMode.LIGHT_GREEN -> LightGreenColorScheme
     }
     
     val isDark = when (themeMode) {
         com.opentube.ui.screens.settings.ThemeMode.SYSTEM -> systemInDarkTheme
         com.opentube.ui.screens.settings.ThemeMode.LIGHT,
-        com.opentube.ui.screens.settings.ThemeMode.SKY_BLUE -> false
+        com.opentube.ui.screens.settings.ThemeMode.SKY_BLUE,
+        com.opentube.ui.screens.settings.ThemeMode.LIGHT_GREEN -> false
         else -> true
     }
     

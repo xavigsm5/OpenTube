@@ -7,17 +7,14 @@ import org.schabi.newpipe.extractor.downloader.Request
 import org.schabi.newpipe.extractor.downloader.Response
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
 import java.io.IOException
-import java.util.concurrent.TimeUnit
 
 /**
  * Implementación del Downloader de NewPipe usando OkHttp
- * Basado en la implementación de LibreTube
+ * Basado en la implementación de LibreTube - minimalista para máxima compatibilidad
  */
 class NewPipeDownloaderImpl : Downloader() {
     
-    private val client = OkHttpClient.Builder()
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
+    private val client = OkHttpClient.Builder().build()
 
     @Throws(IOException::class, ReCaptchaException::class)
     override fun execute(request: Request): Response {
@@ -60,6 +57,7 @@ class NewPipeDownloaderImpl : Downloader() {
 
     companion object {
         private const val USER_AGENT =
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0"
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
 }
+

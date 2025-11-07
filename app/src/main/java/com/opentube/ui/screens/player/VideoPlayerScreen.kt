@@ -189,167 +189,253 @@ fun VideoPlayerScreen(
             
             // Inicializar ExoPlayer
             DisposableEffect(videoId) {
-                // Reutilizar player del mini reproductor si existe
-                val player = if (existingPlayer != null && exoPlayer == null) {
-                    android.util.Log.d("VideoPlayerScreen", "Usando player del mini reproductor")
-                    existingPlayer.apply {
-                        // Asegurar scaling mode correcto
-                        videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-                    }
-                } else if (exoPlayer != null) {
-                    android.util.Log.d("VideoPlayerScreen", "Reutilizando player actual")
-                    exoPlayer!!.apply {
-                        // Asegurar scaling mode correcto
-                        videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-                    }
-                } else {
-                    android.util.Log.d("VideoPlayerScreen", "Creando nuevo player")
-                    val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(context)
-                    ExoPlayer.Builder(context)
-                        .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory))
-                        .build()
-                        .apply {
-                            // Configurar el scaling mode para evitar crop
+                android.util.Log.d("VideoPlayerScreen", "DisposableEffect started for videoId: $videoId")
+                
+                val player: ExoPlayer? = try {
+                    // Reutilizar player del mini reproductor si existe
+                    if (existingPlayer != null && exoPlayer == null) {
+                        android.util.Log.d("VideoPlayerScreen", "Usando player del mini reproductor")
+                        existingPlayer.apply {
                             videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-                            
-                            // Agregar listener para monitorear cambios de video
-                            addListener(object : Player.Listener {
-                                override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
-                                    android.util.Log.d("VideoPlayerScreen", 
-                                        "Video size changed: ${videoSize.width}x${videoSize.height}, " +
-                                        "pixelWidthHeightRatio: ${videoSize.pixelWidthHeightRatio}, " +
-                                        "rotation: ${videoSize.unappliedRotationDegrees}")
-                                    
-                                    // Forzar scaling mode después de cambio de tamaño
-                                    videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-                                }
-                            })
                         }
-                }
-                
-                android.util.Log.d("VideoPlayerScreen", "Inicializando player para video: $videoId")
-                android.util.Log.d("VideoPlayerScreen", "Streams de video: ${videoDetails.videoStreams.size}")
-                android.util.Log.d("VideoPlayerScreen", "Streams de audio: ${videoDetails.audioStreams.size}")
-                
-                // Solo preparar el stream si es un player nuevo
-                val shouldPrepareStream = (existingPlayer == null || player.currentMediaItem == null)
-                
-                if (shouldPrepareStream) {
-                    android.util.Log.d("VideoPlayerScreen", "Preparando nuevo stream")
-                
-                // Verificar si hay streams DASH válidos (con indexEnd > 0)
-                val validDashStreams = videoDetails.videoStreams.filter { 
-                    it.videoOnly && (it.indexEnd ?: 0) > 0 
-                }
-                
-                // Usar streams progresivos si no hay DASH válidos
-                val progressiveStreams = videoDetails.videoStreams.filter { !it.videoOnly }
-                
-                android.util.Log.d("VideoPlayerScreen", "Streams DASH válidos: ${validDashStreams.size}")
-                android.util.Log.d("VideoPlayerScreen", "Streams progresivos: ${progressiveStreams.size}")
-                android.util.Log.d("VideoPlayerScreen", "HLS disponible: ${videoDetails.hlsUrl != null}")
-                
-                if (videoDetails.videoStreams.isNotEmpty()) {
-                    try {
-                        // Usar la calidad seleccionada desde el inicio
-                        val selectedStream = state.playerSettings.selectedQuality
-                        
-                        if (selectedStream != null && selectedStream.url.isNotEmpty()) {
-                            android.util.Log.d("VideoPlayerScreen", "Using selected quality: ${selectedStream.quality} (${selectedStream.height}p)")
-                            
-                            if (selectedStream.videoOnly) {
-                                // DASH stream - necesita audio separado
-                                val selectedAudio = state.playerSettings.selectedAudioTrack 
-                                    ?: videoDetails.audioStreams.maxByOrNull { it.bitrate ?: 0 }
+                    } else if (exoPlayer != null) {
+                        android.util.Log.d("VideoPlayerScreen", "Reutilizando player actual")
+                        exoPlayer!!.apply {
+                            videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+                        }
+                    } else {
+                        android.util.Log.d("VideoPlayerScreen", "Creando nuevo player")
+                        val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(context)
+                        ExoPlayer.Builder(context)
+                            .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory))
+                            .build()
+                            .apply {
+                                videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
                                 
-                                if (selectedAudio != null) {
-                                    android.util.Log.d("VideoPlayerScreen", "Creating DASH manifest for ${selectedStream.quality}")
+                                addListener(object : Player.Listener {
+                                    override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                                        android.util.Log.d("VideoPlayerScreen", 
+                                            "Video size changed: ${videoSize.width}x${videoSize.height}")
+                                        videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+                                    }
+                                })
+                            }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("VideoPlayerScreen", "Error creating player", e)
+                    null
+                }
+                
+                // Solo continuar si el player se creó correctamente
+                if (player != null) {
+                    android.util.Log.d("VideoPlayerScreen", "Player inicializado correctamente")
+                    android.util.Log.d("VideoPlayerScreen", "Video streams: ${videoDetails.videoStreams.size}")
+                    android.util.Log.d("VideoPlayerScreen", "Audio streams: ${videoDetails.audioStreams.size}")
+                    
+                    // Solo preparar contenido si NO viene del mini player
+                    val isFromMiniPlayer = existingPlayer != null && exoPlayer == null
+                    
+                    if (!isFromMiniPlayer) {
+                        android.util.Log.d("VideoPlayerScreen", "Preparando nuevo stream")
+                        
+                        try {
+                            // Detener el player actual antes de cargar nuevo contenido
+                            player.stop()
+                            player.clearMediaItems()
+                            
+                            var streamLoaded = false
+                            
+                            // PARA EN VIVOS: Intentar HLS primero, si no hay HLS intentar Progressive
+                            if (videoDetails.liveNow) {
+                                android.util.Log.d("VideoPlayerScreen", "🔴 LIVE STREAM detected")
+                                
+                                // Intentar HLS primero
+                                if (!videoDetails.hlsUrl.isNullOrEmpty()) {
+                                    android.util.Log.d("VideoPlayerScreen", "Trying HLS for LIVE stream: ${videoDetails.hlsUrl}")
+                                    try {
+                                        val mediaItem = androidx.media3.common.MediaItem.fromUri(videoDetails.hlsUrl)
+                                        player.setMediaItem(mediaItem)
+                                        player.prepare()
+                                        player.playWhenReady = true
+                                        streamLoaded = true
+                                        android.util.Log.d("VideoPlayerScreen", "✅ HLS LIVE loaded")
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("VideoPlayerScreen", "❌ HLS LIVE failed", e)
+                                    }
+                                } else {
+                                    android.util.Log.d("VideoPlayerScreen", "⚠️ HLS URL is empty for LIVE stream")
+                                }
+                                
+                                // Si HLS falla, intentar Progressive para en vivos
+                                if (!streamLoaded && videoDetails.videoStreams.isNotEmpty()) {
+                                    android.util.Log.d("VideoPlayerScreen", "Fallback: Trying Progressive for LIVE")
+                                    try {
+                                        val bestProgressive = videoDetails.videoStreams
+                                            .filter { !it.videoOnly }
+                                            .maxByOrNull { it.height ?: 0 }
+                                        
+                                        if (bestProgressive != null) {
+                                            android.util.Log.d("VideoPlayerScreen", "Loading LIVE Progressive ${bestProgressive.height}p")
+                                            val mediaItem = androidx.media3.common.MediaItem.fromUri(bestProgressive.url)
+                                            player.setMediaItem(mediaItem)
+                                            player.prepare()
+                                            player.playWhenReady = true
+                                            streamLoaded = true
+                                            android.util.Log.d("VideoPlayerScreen", "✅ LIVE Progressive loaded")
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("VideoPlayerScreen", "❌ LIVE Progressive failed", e)
+                                    }
+                                }
+                            }
+                            
+                            // OPCIÓN 1: Progressive stream (video+audio juntos) - MÁS CONFIABLE (para videos normales)
+                            if (!streamLoaded && videoDetails.videoStreams.isNotEmpty()) {
+                                android.util.Log.d("VideoPlayerScreen", "Trying Progressive stream first")
+                                try {
+                                    // Buscar el mejor stream Progressive (con audio incluido)
+                                    val bestProgressive = videoDetails.videoStreams
+                                        .filter { !it.videoOnly && (it.height ?: 0) >= 360 } // Con audio y mínimo 360p
+                                        .maxByOrNull { it.height ?: 0 }
                                     
-                                    val dashUri = DashHelper.createDashSource(
-                                        videoStreams = listOf(selectedStream),
-                                        audioStreams = listOf(selectedAudio),
-                                        duration = videoDetails.duration
-                                    )
-                                    
-                                    val mediaItem = androidx.media3.common.MediaItem.Builder()
-                                        .setUri(dashUri)
-                                        .setMimeType(androidx.media3.common.MimeTypes.APPLICATION_MPD)
-                                        .build()
-                                    
+                                    if (bestProgressive != null) {
+                                        android.util.Log.d("VideoPlayerScreen", "Loading progressive ${bestProgressive.height}p")
+                                        val mediaItem = androidx.media3.common.MediaItem.fromUri(bestProgressive.url)
+                                        player.setMediaItem(mediaItem)
+                                        player.prepare()
+                                        player.playWhenReady = true
+                                        streamLoaded = true
+                                        android.util.Log.d("VideoPlayerScreen", "✅ Progressive loaded successfully")
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("VideoPlayerScreen", "❌ Progressive failed", e)
+                                }
+                            }
+                            
+                            // OPCIÓN 2: HLS (calidad adaptativa) - Si Progressive falla
+                            if (!videoDetails.hlsUrl.isNullOrEmpty() && !streamLoaded) {
+                                android.util.Log.d("VideoPlayerScreen", "Trying HLS stream")
+                                try {
+                                    val mediaItem = androidx.media3.common.MediaItem.fromUri(videoDetails.hlsUrl)
                                     player.setMediaItem(mediaItem)
                                     player.prepare()
                                     player.playWhenReady = true
-                                    
-                                    android.util.Log.d("VideoPlayerScreen", "Player prepared with DASH stream")
+                                    streamLoaded = true
+                                    android.util.Log.d("VideoPlayerScreen", "✅ HLS loaded")
+                                } catch (e: Exception) {
+                                    android.util.Log.e("VideoPlayerScreen", "❌ HLS failed", e)
                                 }
-                            } else {
-                                // Progressive stream (video + audio juntos)
-                                android.util.Log.d("VideoPlayerScreen", "Using progressive stream")
-                                
-                                val mediaItem = androidx.media3.common.MediaItem.Builder()
-                                    .setUri(selectedStream.url)
-                                    .build()
-                                
-                                player.setMediaItem(mediaItem)
-                                player.prepare()
-                                player.playWhenReady = true
-                                
-                                android.util.Log.d("VideoPlayerScreen", "Player prepared with progressive stream")
                             }
+                            
+                            // OPCIÓN 3: DASH (video+audio separado, mejor calidad fija)
+                            if (!streamLoaded && playerSettings.selectedQuality != null) {
+                                android.util.Log.d("VideoPlayerScreen", "Trying DASH streams")
+                                try {
+                                    val videoStream = playerSettings.selectedQuality
+                                    val audioStream = playerSettings.selectedAudioTrack
+                                    
+                                    if (videoStream != null && videoStream.url.isNotEmpty()) {
+                                        if (videoStream.videoOnly && audioStream != null && audioStream.url.isNotEmpty()) {
+                                            // Video + Audio separado (DASH)
+                                            android.util.Log.d("VideoPlayerScreen", "Merging video ${videoStream.height}p + audio ${audioStream.bitrate}")
+                                            
+                                            val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                                            
+                                            val videoSource = androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
+                                                .createMediaSource(androidx.media3.common.MediaItem.fromUri(videoStream.url))
+                                            
+                                            val audioSource = androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
+                                                .createMediaSource(androidx.media3.common.MediaItem.fromUri(audioStream.url))
+                                            
+                                            val mergedSource = androidx.media3.exoplayer.source.MergingMediaSource(videoSource, audioSource)
+                                            
+                                            player.setMediaSource(mergedSource)
+                                            player.prepare()
+                                            player.playWhenReady = true
+                                            streamLoaded = true
+                                            android.util.Log.d("VideoPlayerScreen", "✅ DASH loaded")
+                                        } else if (!videoStream.videoOnly) {
+                                            // Stream con audio integrado
+                                            android.util.Log.d("VideoPlayerScreen", "Using progressive stream ${videoStream.height}p")
+                                            player.setMediaItem(androidx.media3.common.MediaItem.fromUri(videoStream.url))
+                                            player.prepare()
+                                            player.playWhenReady = true
+                                            streamLoaded = true
+                                            android.util.Log.d("VideoPlayerScreen", "✅ Progressive loaded")
+                                        } else {
+                                            // Video sin audio y no hay audio stream
+                                            android.util.Log.w("VideoPlayerScreen", "Video is videoOnly but no audio stream available")
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("VideoPlayerScreen", "❌ DASH failed", e)
+                                    e.printStackTrace()
+                                }
+                            }
+                            
+                            // OPCIÓN 4: Cualquier stream como último recurso
+                            if (!streamLoaded && videoDetails.videoStreams.isNotEmpty()) {
+                                android.util.Log.w("VideoPlayerScreen", "Trying any available stream as fallback")
+                                try {
+                                    val anyStream = videoDetails.videoStreams.firstOrNull { it.url.isNotEmpty() }
+                                    if (anyStream != null) {
+                                        android.util.Log.d("VideoPlayerScreen", "Loading fallback stream ${anyStream.quality}")
+                                        player.setMediaItem(androidx.media3.common.MediaItem.fromUri(anyStream.url))
+                                        player.prepare()
+                                        player.playWhenReady = true
+                                        streamLoaded = true
+                                        android.util.Log.d("VideoPlayerScreen", "✅ Fallback loaded")
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("VideoPlayerScreen", "❌ Fallback failed", e)
+                                    e.printStackTrace()
+                                }
+                            }
+                            
+                            if (!streamLoaded) {
+                                android.util.Log.e("VideoPlayerScreen", "❌ No stream loaded! HLS: ${videoDetails.hlsUrl != null}, Streams: ${videoDetails.videoStreams.size}")
+                            }
+                            
+                            // Set playback speed
+                            try {
+                                player.setPlaybackSpeed(playerSettings.playbackSpeed)
+                            } catch (e: Exception) {
+                                android.util.Log.e("VideoPlayerScreen", "Error setting playback speed", e)
+                            }
+                            
+                        } catch (e: Exception) {
+                            android.util.Log.e("VideoPlayerScreen", "❌ Fatal error loading stream", e)
+                            e.printStackTrace()
                         }
-                        // Fallback: HLS stream
-                        else if (videoDetails.hlsUrl != null) {
-                            android.util.Log.d("VideoPlayerScreen", "Using HLS stream: ${videoDetails.hlsUrl}")
-                            
-                            // Use HlsMediaSource with YouTubeHlsPlaylistParser like LibreTube
-                            val hlsMediaSourceFactory = androidx.media3.exoplayer.hls.HlsMediaSource.Factory(
-                                androidx.media3.datasource.DefaultDataSource.Factory(context)
-                            ).setPlaylistParserFactory(com.opentube.util.YouTubeHlsPlaylistParser.Factory())
-                            
-                            val mediaItem = androidx.media3.common.MediaItem.Builder()
-                                .setUri(videoDetails.hlsUrl)
-                                .setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8)
-                                .build()
-                            
-                            val mediaSource = hlsMediaSourceFactory.createMediaSource(mediaItem)
-                            player.setMediaSource(mediaSource)
-                            player.prepare()
-                            player.playWhenReady = true
-                            
-                            android.util.Log.d("VideoPlayerScreen", "Player prepared with HLS stream")
-                        }
-                        
-                        // Restore playback position
-                        if (state.currentPosition > 0) {
-                            player.seekTo(state.currentPosition)
-                        }
-                        
-                        // Set playback speed
-                        player.setPlaybackSpeed(playerSettings.playbackSpeed)
-                    } catch (e: Exception) {
-                        android.util.Log.e("VideoPlayerScreen", "Error setting up player", e)
-                        e.printStackTrace()
-                    }
-                } else {
-                    android.util.Log.e("VideoPlayerScreen", "No video streams available!")
-                }
-                } else {
-                    android.util.Log.d("VideoPlayerScreen", "Usando stream del mini reproductor")
-                    player.playWhenReady = true
-                }
-                
-                // Auto-reproducir siempre
-                player.playWhenReady = true
-                player.prepare()
-                
+                    } else {
+                        android.util.Log.d("VideoPlayerScreen", "Using existing mini player - keeping content")
+                    }                // Asignar player DESPUÉS de prepararlo
                 exoPlayer = player
+                
+                // TODO: Servicio de media desactivado temporalmente por crashes
+                // El servicio intenta crear MediaItems sin URI causando NullPointerException
+                /*
+                try {
+                    com.opentube.util.MediaServiceManager.startService(
+                        context = context,
+                        videoTitle = videoDetails.title,
+                        videoUploader = videoDetails.uploader,
+                        videoThumbnail = videoDetails.thumbnailUrl,
+                        videoId = videoDetails.videoId,
+                        player = player
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.e("VideoPlayerScreen", "Error iniciando servicio de media", e)
+                }
+                */
+                }
                 
                 onDispose {
                     // Solo liberar el player cuando no estamos minimizando
-                    if (!isMinimizing) {
+                    if (player != null && !isMinimizing) {
                         android.util.Log.d("VideoPlayerScreen", "Liberando player (no minimizado)")
                         player.release()
-                    } else {
+                    } else if (player != null) {
                         android.util.Log.d("VideoPlayerScreen", "Manteniendo player activo (minimizado)")
                     }
                 }
@@ -602,6 +688,19 @@ fun VideoPlayerScreen(
                         },
                         onResizeModeClick = {
                             viewModel.cycleResizeMode()
+                        },
+                        onBackClick = {
+                            if (isFullscreen) {
+                                viewModel.toggleFullscreen()
+                            } else {
+                                isMinimizing = true
+                                onMinimize?.invoke(
+                                    videoDetails.title,
+                                    videoDetails.uploader,
+                                    isPlaying,
+                                    exoPlayer
+                                )
+                            }
                         },
                         isFullscreen = isFullscreen,
                         visible = showControls,

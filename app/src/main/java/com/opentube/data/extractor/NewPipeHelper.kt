@@ -133,12 +133,26 @@ class NewPipeHelper @Inject constructor(
                         duration = item.duration,
                         views = item.viewCount,
                         uploaderVerified = item.isUploaderVerified,
-                        isShort = item.duration < 60,
+                        isShort = item.duration > 0 && item.duration < 60,
                         isLive = item.streamType == StreamType.LIVE_STREAM
                     )
                 }
             
             Result.success(videos)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Obtener videos de Deportes
+     */
+    suspend fun getSportsVideos(): Result<List<Video>> = withContext(Dispatchers.IO) {
+        try {
+            val searchResults = searchVideos("sports highlights soccer football basketball")
+            searchResults.getOrNull()?.take(30)?.let { videos ->
+                Result.success(videos.filter { it.views > 10000 })
+            } ?: Result.failure(Exception("No se pudieron cargar videos de deportes"))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -184,6 +198,40 @@ class NewPipeHelper @Inject constructor(
                 // Filtrar solo videos en vivo
                 Result.success(videos.filter { it.isLive })
             } ?: Result.failure(Exception("No se pudieron cargar videos en vivo"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Obtener Shorts (videos cortos de YouTube)
+     */
+    suspend fun getShorts(page: Int = 0): Result<List<Video>> = withContext(Dispatchers.IO) {
+        try {
+            val searchQueries = listOf(
+                "shorts viral",
+                "shorts funny",
+                "shorts memes",
+                "shorts amazing",
+                "shorts pets",
+                "shorts food",
+                "shorts sports",
+                "shorts music",
+                "shorts comedy",
+                "shorts gaming",
+                "shorts dance",
+                "shorts talent",
+                "shorts magic",
+                "shorts fails"
+            )
+            
+            val query = searchQueries[page % searchQueries.size]
+            
+            val searchResults = searchVideos(query)
+            val shorts = searchResults.getOrNull()?.filter { it.duration > 0 && it.duration < 61 }
+                ?: throw Exception("No se pudieron cargar shorts")
+            
+            Result.success(shorts)
         } catch (e: Exception) {
             Result.failure(e)
         }

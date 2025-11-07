@@ -119,8 +119,8 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
-    // NewPipe Extractor (fork de LibreTube para extraer videos de YouTube)
-    implementation("com.github.libre-tube:NewPipeExtractor:fba182c")
+    // NewPipe Extractor (updated to latest version to fix stream extraction)
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.24.8")
 
     // Room Database
     val roomVersion = "2.6.1"
@@ -137,6 +137,7 @@ dependencies {
     implementation("androidx.media3:media3-ui:$exoplayerVersion")
     implementation("androidx.media3:media3-exoplayer-dash:$exoplayerVersion")
     implementation("androidx.media3:media3-exoplayer-hls:$exoplayerVersion")
+    implementation("androidx.media3:media3-session:$exoplayerVersion") // Para notificaciones
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")

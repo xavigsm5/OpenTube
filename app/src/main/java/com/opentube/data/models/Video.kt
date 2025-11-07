@@ -112,7 +112,10 @@ data class VideoDetails(
     val liveNow: Boolean = false,
     
     @SerializedName("hlsUrl")
-    val hlsUrl: String? = null
+    val hlsUrl: String? = null,
+    
+    // Campo no serializado para almacenar el videoId internamente
+    val videoId: String = ""
 )
 
 /**

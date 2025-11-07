@@ -38,7 +38,9 @@ enum class ThemeMode {
     YOUTUBE,
     BLUE,
     SKY_BLUE,
-    RED
+    RED,
+    PINK,
+    LIGHT_GREEN
 }
 
 @HiltViewModel

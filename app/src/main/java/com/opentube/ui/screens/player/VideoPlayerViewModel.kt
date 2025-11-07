@@ -72,47 +72,60 @@ class VideoPlayerViewModel @Inject constructor(
     private fun loadVideo() {
         android.util.Log.d("VideoPlayerViewModel", "loadVideo() called for videoId: $videoId")
         viewModelScope.launch {
-            videoRepository.getVideoDetails(videoId).collect { result ->
-                _uiState.value = result.fold(
-                    onSuccess = { details ->
-                        // Guardar en historial
-                        saveToHistory(details)
-                        
-                        // Similar to LibreTube: Try DASH first (videoOnly), fallback to Progressive
-                        val dashStreams = details.videoStreams.filter { it.videoOnly && (it.indexEnd ?: 0) > 0 }
-                        val bestVideo = if (dashStreams.isNotEmpty()) {
-                            // DASH available - use video-only stream
-                            dashStreams.maxByOrNull { it.height ?: 0 }
-                        } else {
-                            // No DASH - use progressive stream (video+audio combined)
-                            details.videoStreams
-                                .filter { !it.videoOnly }
-                                .maxByOrNull { it.height ?: 0 }
-                        }
-                        
-                        // Only need audio for DASH streams (videoOnly = true)
-                        val bestAudio = if (bestVideo?.videoOnly == true) {
-                            details.audioStreams
-                                .filter { (it.indexEnd ?: 0) > 0 }
-                                .maxByOrNull { it.bitrate ?: 0 }
-                        } else {
-                            null  // Progressive stream already has audio
-                        }
-                        
-                        VideoPlayerUiState.Success(
-                            videoDetails = details,
-                            playerSettings = PlayerSettings(
-                                selectedQuality = bestVideo,
-                                selectedAudioTrack = bestAudio
+            try {
+                videoRepository.getVideoDetails(videoId).collect { result ->
+                    _uiState.value = result.fold(
+                        onSuccess = { details ->
+                            try {
+                                android.util.Log.d("VideoPlayerViewModel", "Video details loaded successfully")
+                                android.util.Log.d("VideoPlayerViewModel", "HLS URL: ${details.hlsUrl ?: "null"}")
+                                android.util.Log.d("VideoPlayerViewModel", "Video streams: ${details.videoStreams.size}")
+                                android.util.Log.d("VideoPlayerViewModel", "Audio streams: ${details.audioStreams.size}")
+                                
+                                // Guardar en historial
+                                saveToHistory(details)
+                                
+                                // Tomar el mejor video disponible
+                                val bestVideo = details.videoStreams
+                                    .filter { !it.url.isNullOrEmpty() }
+                                    .maxByOrNull { it.height ?: 0 }
+                                
+                                android.util.Log.d("VideoPlayerViewModel", "Best video: ${bestVideo?.quality} (videoOnly=${bestVideo?.videoOnly})")
+                                
+                                // Si el video es solo video (sin audio), necesitamos audio
+                                val bestAudio = if (bestVideo?.videoOnly == true) {
+                                    details.audioStreams
+                                        .filter { !it.url.isNullOrEmpty() }
+                                        .maxByOrNull { it.bitrate ?: 0 }
+                                } else {
+                                    null
+                                }
+                                
+                                android.util.Log.d("VideoPlayerViewModel", "Best audio: ${bestAudio?.quality}")
+                                
+                                VideoPlayerUiState.Success(
+                                    videoDetails = details,
+                                    playerSettings = PlayerSettings(
+                                        selectedQuality = bestVideo,
+                                        selectedAudioTrack = bestAudio
+                                    )
+                                )
+                            } catch (e: Exception) {
+                                android.util.Log.e("VideoPlayerViewModel", "Error processing video details", e)
+                                VideoPlayerUiState.Error("Error al procesar el video: ${e.message}")
+                            }
+                        },
+                        onFailure = { exception ->
+                            android.util.Log.e("VideoPlayerViewModel", "Error loading video", exception)
+                            VideoPlayerUiState.Error(
+                                exception.message ?: "Error al cargar el video"
                             )
-                        )
-                    },
-                    onFailure = { exception ->
-                        VideoPlayerUiState.Error(
-                            exception.message ?: "Error al cargar el video"
-                        )
-                    }
-                )
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("VideoPlayerViewModel", "Fatal error in loadVideo", e)
+                _uiState.value = VideoPlayerUiState.Error("Error crítico: ${e.message}")
             }
         }
     }

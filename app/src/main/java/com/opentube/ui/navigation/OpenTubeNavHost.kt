@@ -51,6 +51,7 @@ fun OpenTubeNavHost(
     // Show bottom bar only on main screens
     val showBottomBar = currentDestination?.route in listOf(
         Screen.Home.route,
+        Screen.Shorts.route,
         Screen.Subscriptions.route,
         Screen.Library.route,
         Screen.Settings.route
@@ -64,8 +65,7 @@ fun OpenTubeNavHost(
             if (showBottomBar) {
                 NavigationBar {
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                        label = { Text("Inicio") },
+                        icon = { Icon(Icons.Default.Home, contentDescription = null) },
                         selected = currentDestination?.hierarchy?.any {
                             it.route == Screen.Home.route
                         } == true,
@@ -81,8 +81,28 @@ fun OpenTubeNavHost(
                     )
                     
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.Subscriptions, contentDescription = "Subscriptions") },
-                        label = { Text("Suscripciones") },
+                        icon = { 
+                            Icon(
+                                imageVector = Icons.Default.SlowMotionVideo,
+                                contentDescription = null
+                            ) 
+                        },
+                        selected = currentDestination?.hierarchy?.any {
+                            it.route == Screen.Shorts.route
+                        } == true,
+                        onClick = {
+                            navController.navigate(Screen.Shorts.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
+                    
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Subscriptions, contentDescription = null) },
                         selected = currentDestination?.hierarchy?.any {
                             it.route == Screen.Subscriptions.route
                         } == true,
@@ -98,8 +118,7 @@ fun OpenTubeNavHost(
                     )
                     
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.VideoLibrary, contentDescription = "Library") },
-                        label = { Text("Biblioteca") },
+                        icon = { Icon(Icons.Default.VideoLibrary, contentDescription = null) },
                         selected = currentDestination?.hierarchy?.any {
                             it.route == Screen.Library.route
                         } == true,
@@ -115,8 +134,7 @@ fun OpenTubeNavHost(
                     )
                     
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                        label = { Text("Ajustes") },
+                        icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                         selected = currentDestination?.hierarchy?.any {
                             it.route == Screen.Settings.route
                         } == true,
@@ -144,8 +162,8 @@ fun OpenTubeNavHost(
                     .fillMaxSize()
                     .padding(
                         top = paddingValues.calculateTopPadding(),
-                        // PADDING FIJO: siempre con bottomBar si no estamos en VideoPlayer
-                        bottom = if (!isOnVideoPlayer && showBottomBar) {
+                        // Keep bottom padding fixed to prevent content jump when mini player appears
+                        bottom = if (showBottomBar) {
                             paddingValues.calculateBottomPadding()
                         } else {
                             0.dp
@@ -184,6 +202,15 @@ fun OpenTubeNavHost(
                     },
                     onSearchClick = {
                         navController.navigate(Screen.Search.route)
+                    }
+                )
+            }
+            
+            composable(Screen.Shorts.route) {
+                com.opentube.ui.screens.shorts.ShortsScreen(
+                    onNavigateBack = { navController.navigateUp() },
+                    onChannelClick = { channelId ->
+                        navController.navigate(Screen.Channel.createRoute(channelId))
                     }
                 )
             }
@@ -243,7 +270,15 @@ fun OpenTubeNavHost(
                         navController.navigate(Screen.Channel.createRoute(channelId))
                     },
                     onVideoClick = { newVideoId ->
-                        navController.navigate(Screen.VideoPlayer.createRoute(newVideoId))
+                        // Limpiar mini player si existe
+                        miniPlayerViewModel.hideMiniPlayer()
+                        // Navegar al nuevo video
+                        navController.navigate(Screen.VideoPlayer.createRoute(newVideoId)) {
+                            // Eliminar la instancia anterior del reproductor del backstack
+                            popUpTo(Screen.VideoPlayer.route.replace("/{videoId}", "")) {
+                                inclusive = false
+                            }
+                        }
                     },
                     onMinimize = { title, channel, isPlaying, player ->
                         miniPlayerViewModel.showMiniPlayer(
@@ -301,14 +336,12 @@ fun OpenTubeNavHost(
             }
         } // Fin del NavHost
             
-        // Mini Player - posicionado ABSOLUTAMENTE encima del bottomBar
-        // Usa offset en vez de padding para no afectar el layout del NavHost
+        // Mini player positioned above bottom bar
         if (!isOnVideoPlayer && miniPlayerState.isVisible) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
-                    // Posición FIJA: siempre en el mismo lugar (encima del bottomBar)
                     .offset(y = if (showBottomBar) -paddingValues.calculateBottomPadding() else 0.dp)
             ) {
                 MiniPlayer(

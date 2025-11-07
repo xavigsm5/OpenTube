@@ -64,6 +64,8 @@ fun SettingsScreen(
                         ThemeMode.BLUE -> "Azul"
                         ThemeMode.SKY_BLUE -> "Celeste"
                         ThemeMode.RED -> "Rojo"
+                        ThemeMode.PINK -> "Rosa"
+                        ThemeMode.LIGHT_GREEN -> "Verde Claro"
                     },
                     onClick = { showThemeDialog = true }
                 )
@@ -370,6 +372,8 @@ private fun ThemeSelectionDialog(
                                 ThemeMode.BLUE -> "Azul"
                                 ThemeMode.SKY_BLUE -> "Celeste"
                                 ThemeMode.RED -> "Rojo"
+                                ThemeMode.PINK -> "Rosa"
+                                ThemeMode.LIGHT_GREEN -> "Verde Claro"
                             }
                         )
                     }

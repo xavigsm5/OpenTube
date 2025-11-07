@@ -286,11 +286,21 @@ private fun formatSubscribers(count: Long): String {
 }
 
 private fun formatDate(dateString: String): String {
-    // Simple formatting - can be improved with actual date parsing
     return try {
+        if (dateString.isEmpty()) return ""
+        
+        // Formato ISO: 2024-11-05T03:00:00Z o 2024-11-05T03:00Z
         if (dateString.contains("T")) {
-            val date = dateString.split("T")[0]
-            date.replace("-", "/")
+            // Extraer solo la fecha (YYYY-MM-DD)
+            val datePart = dateString.substringBefore("T")
+            
+            // Convertir a formato más legible (DD/MM/YYYY)
+            val parts = datePart.split("-")
+            if (parts.size == 3) {
+                "${parts[2]}/${parts[1]}/${parts[0]}"
+            } else {
+                datePart.replace("-", "/")
+            }
         } else {
             dateString
         }

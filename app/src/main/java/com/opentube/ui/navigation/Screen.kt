@@ -5,6 +5,7 @@ package com.opentube.ui.navigation
  */
 sealed class Screen(val route: String) {
     object Home : Screen("home")
+    object Shorts : Screen("shorts")
     object Search : Screen("search")
     object VideoPlayer : Screen("video/{videoId}") {
         fun createRoute(videoId: String) = "video/$videoId"

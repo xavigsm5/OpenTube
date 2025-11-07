@@ -45,10 +45,26 @@ class VideoRepository @Inject constructor(
     }
     
     /**
+     * Get sports videos
+     */
+    fun getSportsVideos(): Flow<Result<List<Video>>> = flow {
+        val result = newPipeHelper.getSportsVideos()
+        emit(result)
+    }
+    
+    /**
      * Get live videos
      */
     fun getLiveVideos(): Flow<Result<List<Video>>> = flow {
         val result = newPipeHelper.getLiveVideos()
+        emit(result)
+    }
+    
+    /**
+     * Get shorts (videos cortos de menos de 60 segundos)
+     */
+    fun getShorts(page: Int = 0): Flow<Result<List<Video>>> = flow {
+        val result = newPipeHelper.getShorts(page)
         emit(result)
     }
     
@@ -179,7 +195,8 @@ class VideoRepository @Inject constructor(
                         )
                     },
                 liveNow = streamInfo.streamType == org.schabi.newpipe.extractor.stream.StreamType.LIVE_STREAM,
-                hlsUrl = streamInfo.hlsUrl
+                hlsUrl = streamInfo.hlsUrl,
+                videoId = videoId  // ✅ Agregar el videoId
             )
             emit(Result.success(details))
         } catch (e: Exception) {
