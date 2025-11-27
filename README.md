@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="OpenTube Logo" width="120" height="120"/>
+<img src="logo.png" alt="OpenTube Logo" width="200" height="200"/>
 
 ### La forma más libre de ver YouTube en Android
 
