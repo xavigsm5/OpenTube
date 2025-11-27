@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.HighQuality
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.*
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.opentube.data.models.AudioStream
 import com.opentube.data.models.VideoStream
+import com.opentube.data.models.SubtitleStream
 
 enum class SettingsTab {
     MAIN,
@@ -37,14 +39,19 @@ enum class SettingsTab {
 fun PlayerSettingsSheet(
     videoStreams: List<VideoStream>,
     audioStreams: List<AudioStream>,
+    subtitleStreams: List<SubtitleStream>,
     currentQuality: VideoStream?,
     currentAudioTrack: AudioStream?,
+    currentSubtitleTrack: SubtitleStream?,
     currentSpeed: Float,
     subtitlesEnabled: Boolean,
+    musicModeEnabled: Boolean,
     onQualitySelected: (VideoStream) -> Unit,
     onAudioSelected: (AudioStream) -> Unit,
+    onSubtitleSelected: (SubtitleStream?) -> Unit,
     onSpeedSelected: (Float) -> Unit,
     onSubtitlesToggle: () -> Unit,
+    onMusicModeToggle: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -85,10 +92,16 @@ fun PlayerSettingsSheet(
                         currentQuality = currentQuality,
                         currentSpeed = currentSpeed,
                         subtitlesEnabled = subtitlesEnabled,
+                        currentSubtitleTrack = currentSubtitleTrack,
                         onQualityClick = { currentTab = SettingsTab.QUALITY },
                         onSpeedClick = { currentTab = SettingsTab.SPEED },
                         onAudioClick = { currentTab = SettingsTab.AUDIO },
-                        onSubtitlesClick = { currentTab = SettingsTab.SUBTITLES }
+                        onSubtitlesClick = { currentTab = SettingsTab.SUBTITLES },
+                        musicModeEnabled = musicModeEnabled,
+                        onMusicModeClick = {
+                            onMusicModeToggle()
+                            onDismiss()
+                        }
                     )
                     
                     SettingsTab.QUALITY -> QualitySettings(
@@ -121,7 +134,13 @@ fun PlayerSettingsSheet(
                     )
                     
                     SettingsTab.SUBTITLES -> SubtitlesSettings(
+                        subtitleStreams = subtitleStreams,
+                        currentSubtitleTrack = currentSubtitleTrack,
                         subtitlesEnabled = subtitlesEnabled,
+                        onSubtitleSelected = {
+                            onSubtitleSelected(it)
+                            currentTab = SettingsTab.MAIN
+                        },
                         onToggle = {
                             onSubtitlesToggle()
                             currentTab = SettingsTab.MAIN
@@ -139,14 +158,19 @@ private fun MainSettings(
     currentQuality: VideoStream?,
     currentSpeed: Float,
     subtitlesEnabled: Boolean,
+    currentSubtitleTrack: SubtitleStream?,
+    musicModeEnabled: Boolean,
     onQualityClick: () -> Unit,
     onSpeedClick: () -> Unit,
     onAudioClick: () -> Unit,
-    onSubtitlesClick: () -> Unit
+    onSubtitlesClick: () -> Unit,
+    onMusicModeClick: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxWidth()
     ) {
+
+        
         item {
             SettingsItem(
                 icon = Icons.Default.HighQuality,
@@ -178,7 +202,7 @@ private fun MainSettings(
             SettingsItem(
                 icon = Icons.Default.Subtitles,
                 title = "Subtítulos",
-                subtitle = if (subtitlesEnabled) "Activados" else "Desactivados",
+                subtitle = if (subtitlesEnabled) currentSubtitleTrack?.language ?: "Activados" else "Desactivados",
                 onClick = onSubtitlesClick
             )
         }
@@ -286,7 +310,10 @@ private fun AudioSettings(
 
 @Composable
 private fun SubtitlesSettings(
+    subtitleStreams: List<SubtitleStream>,
+    currentSubtitleTrack: SubtitleStream?,
     subtitlesEnabled: Boolean,
+    onSubtitleSelected: (SubtitleStream?) -> Unit,
     onToggle: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -304,15 +331,16 @@ private fun SubtitlesSettings(
             SelectableSettingsItem(
                 title = "Desactivados",
                 isSelected = !subtitlesEnabled,
-                onClick = onToggle
+                onClick = { onSubtitleSelected(null) }
             )
         }
         
-        item {
+        items(subtitleStreams) { subtitle ->
             SelectableSettingsItem(
-                title = "Activados",
-                isSelected = subtitlesEnabled,
-                onClick = onToggle
+                title = subtitle.language,
+                subtitle = if (subtitle.autoGenerated) "Autogenerado" else null,
+                isSelected = subtitlesEnabled && currentSubtitleTrack?.url == subtitle.url,
+                onClick = { onSubtitleSelected(subtitle) }
             )
         }
     }

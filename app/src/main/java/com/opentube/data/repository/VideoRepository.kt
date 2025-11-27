@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.opentube.data.extractor.PagedResult
 
 /**
  * Repository for video operations
@@ -22,6 +23,17 @@ class VideoRepository @Inject constructor(
     
     /**
      * Get trending videos usando NewPipe
+     */
+    /**
+     * Get trending videos usando NewPipe (Paged)
+     */
+    fun getTrendingPaged(pageUrl: String? = null): Flow<Result<PagedResult<Video>>> = flow {
+        val result = newPipeHelper.getTrendingVideosPaged(pageUrl)
+        emit(result)
+    }
+
+    /**
+     * Get trending videos usando NewPipe (Legacy)
      */
     fun getTrending(region: String = "US"): Flow<Result<List<Video>>> = flow {
         val result = newPipeHelper.getTrendingVideos()
@@ -69,10 +81,49 @@ class VideoRepository @Inject constructor(
     }
     
     /**
+     * Get playlists by query
+     */
+    fun getPlaylists(query: String): Flow<Result<List<Playlist>>> = flow {
+        val result = newPipeHelper.searchPlaylists(query)
+        emit(result)
+    }
+
+    /**
+     * Get albums by query
+     */
+    fun getAlbums(query: String): Flow<Result<List<Album>>> = flow {
+        val result = newPipeHelper.searchAlbums(query)
+        emit(result)
+    }
+
+    /**
+     * Get playlist details (videos)
+     */
+    fun getPlaylistDetails(url: String): Flow<Result<List<Video>>> = flow {
+        val result = newPipeHelper.getPlaylistDetails(url)
+        emit(result)
+    }
+    
+    /**
+     * Get video details usando NewPipe
+     */
+    // Cache en memoria para VideoDetails (para transiciones rápidas)
+    private var cachedVideoDetails: VideoDetails? = null
+
+    /**
      * Get video details usando NewPipe
      */
     fun getVideoDetails(videoId: String): Flow<Result<VideoDetails>> = flow {
         android.util.Log.d("VideoRepository", "=== getVideoDetails() CALLED for videoId: $videoId ===")
+        
+        // 1. Emitir caché si existe y coincide
+        cachedVideoDetails?.let { cached ->
+            if (cached.videoId == videoId) {
+                android.util.Log.d("VideoRepository", "Returning CACHED video details for: $videoId")
+                emit(Result.success(cached))
+            }
+        }
+        
         try {
             val url = "https://www.youtube.com/watch?v=$videoId"
             android.util.Log.d("VideoRepository", "Fetching StreamInfo from NewPipe for URL: $url")
@@ -196,8 +247,13 @@ class VideoRepository @Inject constructor(
                     },
                 liveNow = streamInfo.streamType == org.schabi.newpipe.extractor.stream.StreamType.LIVE_STREAM,
                 hlsUrl = streamInfo.hlsUrl,
+                dashUrl = streamInfo.dashMpdUrl, // Agregar dashUrl
                 videoId = videoId  // ✅ Agregar el videoId
             )
+            
+            // Actualizar caché
+            cachedVideoDetails = details
+            
             emit(Result.success(details))
         } catch (e: Exception) {
             emit(Result.failure(e))
@@ -206,6 +262,20 @@ class VideoRepository @Inject constructor(
     
     /**
      * Search for content usando NewPipe
+     */
+    /**
+     * Search for content usando NewPipe (Paged)
+     */
+    fun searchPaged(
+        query: String,
+        pageUrl: String? = null
+    ): Flow<Result<PagedResult<Video>>> = flow {
+        val result = newPipeHelper.searchVideosPaged(query, pageUrl)
+        emit(result)
+    }
+
+    /**
+     * Search for content usando NewPipe (Legacy)
      */
     fun search(
         query: String,
@@ -235,7 +305,7 @@ class VideoRepository @Inject constructor(
                         verified = video.uploaderVerified
                     )
                 },
-                nextPage = null,
+                nextPage = null, // TODO: Use paged result if needed here
                 suggestion = null,
                 corrected = false
             )
@@ -381,4 +451,3 @@ class VideoRepository @Inject constructor(
         }
     }
 }
-

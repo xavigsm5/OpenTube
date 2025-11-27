@@ -64,17 +64,17 @@ private val YouTubeColorScheme = darkColorScheme(
     onPrimary = Color(0xFFFFFFFF),
     primaryContainer = Color(0xFFCC0000),
     onPrimaryContainer = Color(0xFFFFFFFF),
-    secondary = Color(0xFF424242),
+    secondary = Color(0xFF888888),
     onSecondary = Color(0xFFFFFFFF),
     secondaryContainer = Color(0xFF303030),
     onSecondaryContainer = Color(0xFFFFFFFF),
     background = Color(0xFF0F0F0F),
     onBackground = Color(0xFFFFFFFF),
     surface = Color(0xFF212121),
-    onSurface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFF282828),
-    onSurfaceVariant = Color(0xFFE0E0E0),
-    outline = Color(0xFF3D3D3D),
+    onSurface = Color(0xFFF1F1F1),
+    surfaceVariant = Color(0xFF212121),
+    onSurfaceVariant = Color(0xFFCCCCCC),
+    outline = Color(0xFF383838),
     error = Color(0xFFCF6679),
     onError = Color(0xFF000000)
 )
@@ -211,34 +211,38 @@ private val DarkGreenSpotifyColorScheme = darkColorScheme(
 @Composable
 fun OpenTubeTheme(
     themeMode: com.opentube.ui.screens.settings.ThemeMode = com.opentube.ui.screens.settings.ThemeMode.DARK,
+    materialYouEnabled: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
     val systemInDarkTheme = isSystemInDarkTheme()
     
-    val colorScheme = when (themeMode) {
-        com.opentube.ui.screens.settings.ThemeMode.SYSTEM -> {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (systemInDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-            } else {
+    val colorScheme = if (materialYouEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        // Material You (Dynamic Colors)
+        if (systemInDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else {
+        // Standard Themes
+        when (themeMode) {
+            com.opentube.ui.screens.settings.ThemeMode.SYSTEM -> {
                 if (systemInDarkTheme) DarkColorScheme else LightColorScheme
             }
+            com.opentube.ui.screens.settings.ThemeMode.LIGHT -> LightColorScheme
+            com.opentube.ui.screens.settings.ThemeMode.DARK -> DarkColorScheme
+            com.opentube.ui.screens.settings.ThemeMode.YOUTUBE -> YouTubeColorScheme
+            com.opentube.ui.screens.settings.ThemeMode.BLUE -> BlueColorScheme
+            com.opentube.ui.screens.settings.ThemeMode.SKY_BLUE -> SkyBlueColorScheme
+            com.opentube.ui.screens.settings.ThemeMode.RED -> RedColorScheme
+            com.opentube.ui.screens.settings.ThemeMode.PINK -> PinkColorScheme
+            com.opentube.ui.screens.settings.ThemeMode.LIGHT_GREEN -> LightGreenColorScheme
         }
-        com.opentube.ui.screens.settings.ThemeMode.LIGHT -> LightColorScheme
-        com.opentube.ui.screens.settings.ThemeMode.DARK -> DarkColorScheme
-        com.opentube.ui.screens.settings.ThemeMode.YOUTUBE -> YouTubeColorScheme
-        com.opentube.ui.screens.settings.ThemeMode.BLUE -> BlueColorScheme
-        com.opentube.ui.screens.settings.ThemeMode.SKY_BLUE -> SkyBlueColorScheme
-        com.opentube.ui.screens.settings.ThemeMode.RED -> RedColorScheme
-        com.opentube.ui.screens.settings.ThemeMode.PINK -> PinkColorScheme
-        com.opentube.ui.screens.settings.ThemeMode.LIGHT_GREEN -> LightGreenColorScheme
     }
     
-    val isDark = when (themeMode) {
-        com.opentube.ui.screens.settings.ThemeMode.SYSTEM -> systemInDarkTheme
-        com.opentube.ui.screens.settings.ThemeMode.LIGHT,
-        com.opentube.ui.screens.settings.ThemeMode.SKY_BLUE,
-        com.opentube.ui.screens.settings.ThemeMode.LIGHT_GREEN -> false
+    val isDark = when {
+        materialYouEnabled -> systemInDarkTheme
+        themeMode == com.opentube.ui.screens.settings.ThemeMode.SYSTEM -> systemInDarkTheme
+        themeMode == com.opentube.ui.screens.settings.ThemeMode.LIGHT -> false
+        themeMode == com.opentube.ui.screens.settings.ThemeMode.SKY_BLUE -> false
+        themeMode == com.opentube.ui.screens.settings.ThemeMode.LIGHT_GREEN -> false
         else -> true
     }
     

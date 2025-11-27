@@ -5,20 +5,25 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.opentube.R
 
 @Composable
 fun PlayerControls(
@@ -38,172 +43,70 @@ fun PlayerControls(
     videoTitle: String = "",
     resizeMode: Int = 0,
     onResizeModeClick: () -> Unit = {},
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onShareClick: () -> Unit = {}
 ) {
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(),
-        exit = fadeOut()
+        exit = fadeOut(),
+        modifier = modifier
     ) {
         Box(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
         ) {
-            if (isFullscreen) {
-                // Fullscreen mode
-                
-                // Barra superior con back y título
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.TopStart)
-                        .background(
-                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.7f),
-                                    Color.Transparent
-                                )
+            // Top Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.7f),
+                                Color.Transparent
                             )
                         )
-                        .statusBarsPadding()
-                        .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Back button
-                    IconButton(
-                        onClick = onBackClick,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Volver",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    
-                    // Video title
-                    Text(
-                        text = videoTitle,
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
                     )
-                }
-                
-                // Top right buttons
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .statusBarsPadding()
-                        .padding(top = 8.dp, end = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Aspect ratio button
-                    IconButton(
-                        onClick = onResizeModeClick,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        val resizeIcon = when(resizeMode) {
-                            0 -> "FIT"
-                            1 -> "FILL"
-                            2 -> "ZOOM"
-                            3 -> "W"
-                            4 -> "H"
-                            else -> "FIT"
-                        }
-                        Text(
-                            text = resizeIcon,
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 10.sp
-                        )
-                    }
-                    
-                    // Settings
-                    IconButton(
-                        onClick = onSettingsClick,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Configuración",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                
-            } else {
-                // Vertical mode
-                
-                // Back button top left
-                IconButton(
-                    onClick = onBackClick,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .statusBarsPadding()
-                        .padding(start = 8.dp, top = 8.dp)
-                        .size(40.dp)
-                ) {
+                    .padding(horizontal = 16.dp, vertical = 8.dp), // Removed statusBarsPadding
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBackClick) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Volver",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Minimizar",
+                        tint = Color.White
                     )
                 }
                 
-                // Top right buttons
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .statusBarsPadding()
-                        .padding(top = 8.dp, end = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Aspect ratio button
-                    IconButton(
-                        onClick = onResizeModeClick,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        val resizeIcon = when(resizeMode) {
-                            0 -> "FIT"
-                            1 -> "FILL"
-                            2 -> "ZOOM"
-                            3 -> "W"
-                            4 -> "H"
-                            else -> "FIT"
-                        }
-                        Text(
-                            text = resizeIcon,
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 9.sp
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onShareClick) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Compartir",
+                            tint = Color.White
                         )
                     }
-                    
-                    // Settings
-                    IconButton(
-                        onClick = onSettingsClick,
-                        modifier = Modifier.size(36.dp)
-                    ) {
+                    IconButton(onClick = { /* CC Action */ }) {
                         Icon(
-                            imageVector = Icons.Default.Settings,
+                            imageVector = Icons.Rounded.ClosedCaption,
+                            contentDescription = "Subtítulos",
+                            tint = Color.White
+                        )
+                    }
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(
+                            imageVector = Icons.Rounded.Settings,
                             contentDescription = "Configuración",
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
+                            tint = Color.White
                         )
                     }
                 }
             }
             
-            // Center controls
             Row(
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -214,95 +117,84 @@ fun PlayerControls(
                 // Rewind 10s
                 IconButton(
                     onClick = onRewind,
-                    modifier = Modifier.size(64.dp)
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Replay10,
                         contentDescription = "Retroceder 10s",
                         tint = Color.White,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(32.dp)
                     )
                 }
                 
-                // Main play/pause button
+                // Play/Pause
                 IconButton(
                     onClick = onPlayPauseClick,
-                    modifier = Modifier.size(80.dp)
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(Color.Black.copy(alpha = 0.4f), CircleShape)
                 ) {
                     Icon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = if (isPlaying) "Pausar" else "Reproducir",
                         tint = Color.White,
-                        modifier = Modifier.size(64.dp)
+                        modifier = Modifier.size(40.dp)
                     )
                 }
                 
                 // Forward 10s
                 IconButton(
                     onClick = onForward,
-                    modifier = Modifier.size(64.dp)
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Forward10,
                         contentDescription = "Adelantar 10s",
                         tint = Color.White,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(32.dp)
                     )
                 }
             }
             
-            // Bottom bar
+            // Bottom Bar
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        brush = Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = if (isFullscreen) 0.7f else 0.5f)
+                                Color.Black.copy(alpha = 0.8f)
                             )
                         )
                     )
-                    .then(if (isFullscreen) Modifier.navigationBarsPadding() else Modifier)
-                    .padding(
-                        start = if (isFullscreen) 16.dp else 12.dp,
-                        end = if (isFullscreen) 16.dp else 12.dp,
-                        bottom = if (isFullscreen) 8.dp else 4.dp,
-                        top = 0.dp
-                    )
+                    .padding(bottom = if (isFullscreen) 24.dp else 0.dp) // Raise controls in fullscreen
             ) {
-                // Time and fullscreen button FIRST
+                // Time and Fullscreen (Above Seekbar)
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Current time / duration
                     Text(
-                        text = "${formatTime(currentPosition)} / ${formatTime(duration)}",
+                        text = "${formatDuration(currentPosition)} / ${formatDuration(duration)}",
                         color = Color.White,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontSize = if (isFullscreen) 14.sp else 12.sp
+                        style = MaterialTheme.typography.bodyMedium
                     )
                     
-                    // Fullscreen toggle
-                    IconButton(
-                        onClick = onFullscreenClick,
-                        modifier = Modifier.size(32.dp)
-                    ) {
+                    IconButton(onClick = onFullscreenClick) {
                         Icon(
                             imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
                             contentDescription = if (isFullscreen) "Salir de pantalla completa" else "Pantalla completa",
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp)
+                            tint = Color.White
                         )
                     }
                 }
                 
-                Spacer(modifier = Modifier.height(2.dp))
-                
-                // Progress bar BELOW the time
+                // Edge-to-Edge Seek Bar
                 VideoProgressBar(
                     currentPosition = currentPosition,
                     duration = duration,
@@ -315,48 +207,58 @@ fun PlayerControls(
 }
 
 @Composable
-private fun VideoProgressBar(
+fun VideoProgressBar(
     currentPosition: Long,
     duration: Long,
     bufferedPosition: Long,
-    onSeek: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    onSeek: (Long) -> Unit
 ) {
-    var sliderPosition by remember(currentPosition) { 
-        mutableFloatStateOf(currentPosition.toFloat()) 
-    }
-    var isUserSeeking by remember { mutableStateOf(false) }
+    var isDragging by remember { mutableStateOf(false) }
+    var dragPosition by remember { mutableStateOf(0L) }
     
-    Column(modifier = modifier.fillMaxWidth()) {
+    val sliderPosition = if (isDragging) dragPosition else currentPosition
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(18.dp) // Slightly taller to capture touch easily, but visually thin
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { /* Consume clicks */ }
+    ) {
         Slider(
-            value = if (isUserSeeking) sliderPosition else currentPosition.toFloat(),
-            onValueChange = { value ->
-                isUserSeeking = true
-                sliderPosition = value
+            value = sliderPosition.toFloat(),
+            onValueChange = {
+                isDragging = true
+                dragPosition = it.toLong()
             },
             onValueChangeFinished = {
-                isUserSeeking = false
-                onSeek(sliderPosition.toLong())
+                isDragging = false
+                onSeek(dragPosition)
             },
-            valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
+            valueRange = 0f..duration.coerceAtLeast(1L).toFloat(),
             colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary,
+                thumbColor = Color(0xFFFF0000), // YouTube Red
+                activeTrackColor = Color(0xFFFF0000),
                 inactiveTrackColor = Color.White.copy(alpha = 0.3f)
-            )
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset(y = 8.dp) // Push down slightly to align with bottom edge
         )
     }
 }
 
-private fun formatTime(milliseconds: Long): String {
-    val totalSeconds = milliseconds / 1000
-    val hours = totalSeconds / 3600
-    val minutes = (totalSeconds % 3600) / 60
-    val seconds = totalSeconds % 60
+private fun formatDuration(totalSeconds: Long): String {
+    val seconds = totalSeconds / 1000
+    val hours = seconds / 3600
+    val minutes = (seconds % 3600) / 60
+    val remainingSeconds = seconds % 60
     
     return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, minutes, seconds)
+        String.format("%d:%02d:%02d", hours, minutes, remainingSeconds)
     } else {
-        String.format("%d:%02d", minutes, seconds)
+        String.format("%d:%02d", minutes, remainingSeconds)
     }
 }

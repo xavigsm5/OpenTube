@@ -50,8 +50,11 @@ class VideoPlayerViewModel @Inject constructor(
     private val watchHistoryDao: WatchHistoryDao,
     private val favoriteDao: FavoriteDao,
     private val subscriptionDao: SubscriptionDao,
+    private val playerManager: com.opentube.player.PlayerManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+    
+    val player = playerManager.player
     
     private val videoId: String = checkNotNull(savedStateHandle["videoId"])
     
@@ -63,16 +66,45 @@ class VideoPlayerViewModel @Inject constructor(
     
     init {
         android.util.Log.d("VideoPlayerViewModel", "=== ViewModel INIT for videoId: $videoId ===")
-        loadVideo()
+        
+        // Check if we are already playing this video and have cached details
+        if (playerManager.currentVideoId.value == videoId && playerManager.cachedVideoDetails != null) {
+            android.util.Log.d("VideoPlayerViewModel", "Using cached video details - seamless transition!")
+            val cachedDetails = playerManager.cachedVideoDetails!!
+            
+            // Immediately set success state with cached details
+            _uiState.value = VideoPlayerUiState.Success(
+                videoDetails = cachedDetails,
+                playerSettings = PlayerSettings(
+                    selectedQuality = cachedDetails.videoStreams
+                        .filter { !it.url.isNullOrEmpty() }
+                        .maxByOrNull { it.height ?: 0 },
+                    selectedAudioTrack = cachedDetails.audioStreams
+                        .filter { !it.url.isNullOrEmpty() }
+                        .maxByOrNull { it.bitrate ?: 0 }
+                )
+            )
+            
+            // Still load fresh data in background, but UI is already showing
+            loadVideo(skipLoadingState = true)
+        } else {
+            // Normal flow - show loading state
+            loadVideo(skipLoadingState = false)
+        }
+        
         checkIfFavorite()
         checkIfSubscribed()
         loadComments()
     }
     
-    private fun loadVideo() {
-        android.util.Log.d("VideoPlayerViewModel", "loadVideo() called for videoId: $videoId")
+    private fun loadVideo(skipLoadingState: Boolean = false) {
+        android.util.Log.d("VideoPlayerViewModel", "loadVideo() called for videoId: $videoId (skipLoadingState=$skipLoadingState)")
         viewModelScope.launch {
             try {
+                if (!skipLoadingState) {
+                    _uiState.value = VideoPlayerUiState.Loading
+                }
+                
                 videoRepository.getVideoDetails(videoId).collect { result ->
                     _uiState.value = result.fold(
                         onSuccess = { details ->
@@ -81,6 +113,9 @@ class VideoPlayerViewModel @Inject constructor(
                                 android.util.Log.d("VideoPlayerViewModel", "HLS URL: ${details.hlsUrl ?: "null"}")
                                 android.util.Log.d("VideoPlayerViewModel", "Video streams: ${details.videoStreams.size}")
                                 android.util.Log.d("VideoPlayerViewModel", "Audio streams: ${details.audioStreams.size}")
+                                
+                                // Cache the details for future transitions
+                                playerManager.cacheVideoDetails(details)
                                 
                                 // Guardar en historial
                                 saveToHistory(details)
@@ -245,6 +280,18 @@ class VideoPlayerViewModel @Inject constructor(
         }
     }
     
+    fun setResizeMode(mode: Int) {
+        val currentState = _uiState.value
+        if (currentState is VideoPlayerUiState.Success) {
+            _uiState.value = currentState.copy(
+                playerSettings = currentState.playerSettings.copy(
+                    resizeMode = mode
+                )
+            )
+            android.util.Log.d("VideoPlayerViewModel", "Resize mode set to: $mode")
+        }
+    }
+    
     fun updatePlaybackPosition(position: Long) {
         val currentState = _uiState.value
         if (currentState is VideoPlayerUiState.Success) {
@@ -349,5 +396,9 @@ class VideoPlayerViewModel @Inject constructor(
     fun loadMoreComments() {
         // TODO: Implementar paginación de comentarios
         android.util.Log.d("VideoPlayerViewModel", "loadMoreComments() not implemented yet")
+    }
+    
+    fun isCurrentVideo(checkVideoId: String): Boolean {
+        return playerManager.currentVideoId.value == checkVideoId
     }
 }

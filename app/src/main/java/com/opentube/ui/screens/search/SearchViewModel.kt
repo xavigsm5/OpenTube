@@ -10,6 +10,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.opentube.data.extractor.PagedResult
 
 /**
  * UI State for Search screen
@@ -77,13 +78,36 @@ class SearchViewModel @Inject constructor(
             // Agregar al historial
             searchHistoryManager.addSearch(query)
             
-            videoRepository.search(query, filter).collect { result ->
+            videoRepository.searchPaged(query, null).collect { result ->
                 _uiState.value = result.fold(
-                    onSuccess = { searchResults ->
-                        currentNextPage = searchResults.nextPage
+                    onSuccess = { pagedResult ->
+                        currentNextPage = pagedResult.nextPageUrl
+                        
+                        // Convert Video to SearchItem
+                        val items = pagedResult.items.map { video ->
+                            SearchItem(
+                                url = video.url,
+                                type = "stream",
+                                title = video.title,
+                                name = video.title,
+                                thumbnail = video.thumbnail,
+                                uploaderName = video.uploaderName,
+                                uploaderUrl = video.uploaderUrl,
+                                uploaderAvatar = video.uploaderAvatar,
+                                uploadedDate = video.uploadedDate,
+                                duration = video.duration,
+                                views = video.views,
+                                uploaderVerified = video.uploaderVerified,
+                                description = "",
+                                subscribers = null,
+                                videos = null,
+                                verified = video.uploaderVerified
+                            )
+                        }
+                        
                         SearchUiState.Success(
-                            results = searchResults.items,
-                            hasMore = searchResults.nextPage != null
+                            results = items,
+                            hasMore = pagedResult.nextPageUrl != null
                         )
                     },
                     onFailure = { exception ->
@@ -101,18 +125,41 @@ class SearchViewModel @Inject constructor(
         val currentState = _uiState.value as? SearchUiState.Success ?: return
         
         viewModelScope.launch {
-            videoRepository.searchNextPage(
+            videoRepository.searchPaged(
                 query = searchQuery.value,
-                filter = currentFilter,
-                nextPage = nextPage
+                pageUrl = nextPage
             ).collect { result ->
                 result.fold(
-                    onSuccess = { searchResults ->
-                        currentNextPage = searchResults.nextPage
+                    onSuccess = { pagedResult ->
+                        currentNextPage = pagedResult.nextPageUrl
+                        
+                        val newItems: List<SearchItem> = pagedResult.items.map { video ->
+                            SearchItem(
+                                url = video.url,
+                                type = "stream",
+                                title = video.title,
+                                name = video.title,
+                                thumbnail = video.thumbnail,
+                                uploaderName = video.uploaderName,
+                                uploaderUrl = video.uploaderUrl,
+                                uploaderAvatar = video.uploaderAvatar,
+                                uploadedDate = video.uploadedDate,
+                                duration = video.duration,
+                                views = video.views,
+                                uploaderVerified = video.uploaderVerified,
+                                description = "",
+                                subscribers = null,
+                                videos = null,
+                                verified = video.uploaderVerified
+                            )
+                        }
+                        
+                        val updatedResults = currentState.results + newItems
+                        
                         _uiState.value = SearchUiState.Success(
-                            results = currentState.results + searchResults.items,
-                            hasMore = searchResults.nextPage != null
-                        )
+                            results = updatedResults,
+                            hasMore = pagedResult.nextPageUrl != null
+                        ) as SearchUiState
                     },
                     onFailure = {
                         // Keep current state on error

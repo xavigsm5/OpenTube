@@ -25,15 +25,19 @@ timeout /t 3 /nobreak >nul
 echo [5/5] Compilando APK con JDK correcto...
 echo.
 set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
-gradlew.bat clean assembleDebug --no-daemon --warning-mode all
+call gradlew.bat clean assembleDebug --no-daemon --warning-mode all
 
 echo.
 echo ========================================
-if %ERRORLEVEL% EQU 0 (
-    echo    COMPILACION EXITOSA!
-    echo    APK: app\build\outputs\apk\debug\app-debug.apk
-) else (
-    echo    COMPILACION FALLIDA - Revisa los errores arriba
-)
+if %ERRORLEVEL% NEQ 0 goto fail
+
+echo    COMPILACION EXITOSA!
+echo    APK: app\build\outputs\apk\debug\app-debug.apk
+goto end
+
+:fail
+echo    COMPILACION FALLIDA - Revisa los errores arriba
+
+:end
 echo ========================================
 pause

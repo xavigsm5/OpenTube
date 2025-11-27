@@ -23,7 +23,7 @@ build/
 local.properties
 
 # Keystore files - DO NOT COMMIT
-keystore.properties
+# keystore.properties
 keystore/
 *.keystore
 *.jks

@@ -1,7 +1,5 @@
 package com.opentube.ui.components
 
-import android.view.ViewGroup
-import android.widget.FrameLayout
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
@@ -9,24 +7,30 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.ui.PlayerView
+import coil.compose.AsyncImage
 
 data class MiniPlayerState(
     val videoId: String = "",
     val title: String = "",
     val channelName: String = "",
+    val thumbnailUrl: String = "",
     val isPlaying: Boolean = false,
     val isVisible: Boolean = false,
     val player: androidx.media3.exoplayer.ExoPlayer? = null
@@ -38,112 +42,144 @@ fun MiniPlayer(
     onPlayPauseClick: () -> Unit,
     onClose: () -> Unit,
     onClick: () -> Unit,
+    onSeekForward: () -> Unit = {},
+    onSeekBackward: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    // Log para debug
-    LaunchedEffect(state.player) {
-        android.util.Log.d("MiniPlayer", "Player actualizado: ${state.player != null}, isPlaying: ${state.isPlaying}")
-    }
-    
     AnimatedVisibility(
         visible = state.isVisible,
         enter = slideInVertically(
-            initialOffsetY = { it }, // Desliza desde abajo
+            initialOffsetY = { it },
             animationSpec = tween(durationMillis = 300)
         ),
         exit = slideOutVertically(
-            targetOffsetY = { it }, // Desliza hacia abajo
+            targetOffsetY = { it },
             animationSpec = tween(durationMillis = 300)
         )
     ) {
+        // Floating PiP Player
         Card(
             modifier = modifier
-                .fillMaxWidth()
-                .height(64.dp)
+                .width(240.dp) // Reduced width
+                .wrapContentHeight()
+                .padding(8.dp)
                 .clickable(onClick = onClick),
+            shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                containerColor = Color.Black
             ),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = 16.dp // Aumentado de 8dp a 16dp para mejor visibilidad
+                defaultElevation = 8.dp
             )
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Video player en miniatura
+            Column {
+                // Video Area (16:9)
                 Box(
                     modifier = Modifier
-                        .width(100.dp)
-                        .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.surface)
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .background(Color.Black)
                 ) {
                     if (state.player != null) {
                         AndroidView(
-                            factory = { context ->
-                                PlayerView(context).apply {
+                            factory = { context: android.content.Context ->
+                                androidx.media3.ui.PlayerView(context).apply {
                                     useController = false
-                                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-                                    layoutParams = FrameLayout.LayoutParams(
-                                        ViewGroup.LayoutParams.MATCH_PARENT,
-                                        ViewGroup.LayoutParams.MATCH_PARENT
-                                    )
+                                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                                    player = state.player
                                 }
                             },
-                            update = { playerView ->
-                                // Actualizar el player cada vez que cambia el estado
+                            update = { playerView: androidx.media3.ui.PlayerView ->
                                 playerView.player = state.player
-                                playerView.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                             },
                             modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        AsyncImage(
+                            model = state.thumbnailUrl,
+                            contentDescription = "Video thumbnail",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    
+                    // Close Button (Overlay on Video Top Right)
+                    // Close Button (Overlay on Video Top Right)
+                    IconButton(
+                        onClick = onClose,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(32.dp) // Slightly larger touch target
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Cerrar",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                                .background(Color.Black.copy(alpha = 0.3f), androidx.compose.foundation.shape.CircleShape) // Subtle background only on icon if needed, or none.
+                                // User said "circle behind x looks ugly". I'll remove it completely or make it very subtle shadow.
+                                // I'll use a shadow on the icon instead of a background circle.
                         )
                     }
                 }
                 
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                // Información del video
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center
+                // Controls Bar (Bottom)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black)
+                        .padding(vertical = 4.dp), // Reduced padding
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    Text(
-                        text = state.title,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    // Rewind 10s
+                    IconButton(
+                        onClick = onSeekBackward,
+                        modifier = Modifier.size(32.dp) // Smaller button
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Filled.Replay10,
+                            contentDescription = "-10s",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                     
-                    Text(
-                        text = state.channelName,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // Play/Pause
+                    IconButton(
+                        onClick = onPlayPauseClick,
+                        modifier = Modifier.size(40.dp) // Smaller button
+                    ) {
+                        Icon(
+                            imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (state.isPlaying) "Pausar" else "Reproducir",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    
+                    // Forward 10s
+                    IconButton(
+                        onClick = onSeekForward,
+                        modifier = Modifier.size(32.dp) // Smaller button
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Filled.Forward10,
+                            contentDescription = "+10s",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
                 
-                // Botón Play/Pause
-                IconButton(onClick = onPlayPauseClick) {
-                    Icon(
-                        imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (state.isPlaying) "Pausar" else "Reproducir",
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                
-                // Botón Cerrar
-                IconButton(onClick = onClose) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Cerrar",
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                // Progress Bar (Bottom Line)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .background(Color.Red)
+                )
             }
         }
     }

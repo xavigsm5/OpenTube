@@ -37,7 +37,7 @@ data class Channel(
 /**
  * Playlist information
  */
-data class Playlist(
+data class PipedPlaylist(
     @SerializedName("name")
     val name: String,
     

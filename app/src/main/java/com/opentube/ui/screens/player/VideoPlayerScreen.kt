@@ -10,6 +10,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,6 +21,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,6 +39,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
+import com.opentube.ui.screens.player.components.MetrolistMusicPlayer
 import androidx.media3.ui.PlayerView
 import com.opentube.ui.screens.player.components.PlayerControls
 import com.opentube.ui.screens.player.components.PlayerSettingsSheet
@@ -52,7 +56,7 @@ fun VideoPlayerScreen(
     onNavigateBack: () -> Unit,
     onChannelClick: ((String) -> Unit)? = null,
     onVideoClick: ((String) -> Unit)? = null,
-    onMinimize: ((title: String, channel: String, isPlaying: Boolean, player: androidx.media3.exoplayer.ExoPlayer?) -> Unit)? = null,
+    onMinimize: ((title: String, channel: String, thumbnailUrl: String, isPlaying: Boolean, player: androidx.media3.exoplayer.ExoPlayer?) -> Unit)? = null,
     existingPlayer: androidx.media3.exoplayer.ExoPlayer? = null,
     viewModel: VideoPlayerViewModel = hiltViewModel()
 ) {
@@ -62,7 +66,9 @@ fun VideoPlayerScreen(
     val showSettingsSheet by viewModel.showSettingsSheet.collectAsState()
     val context = LocalContext.current
     
-    var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
+    // Use shared player from ViewModel
+    val exoPlayer = viewModel.player
+    
     var isPlaying by remember { mutableStateOf(false) }
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
@@ -85,7 +91,10 @@ fun VideoPlayerScreen(
         
         // Ocultar/mostrar barras del sistema en pantalla completa
         activity?.window?.let { window ->
-            WindowCompat.setDecorFitsSystemWindows(window, !isFullscreen)
+            // SIEMPRE usar false para que el contenido se dibuje detrás de las barras
+            // El padding del Scaffold en OpenTubeNavHost se encarga de dejar el espacio en portrait
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            
             val insetsController = WindowCompat.getInsetsController(window, window.decorView)
             insetsController?.apply {
                 if (isFullscreen) {
@@ -132,6 +141,7 @@ fun VideoPlayerScreen(
             onMinimize(
                 state.videoDetails.title,
                 state.videoDetails.uploader,
+                state.videoDetails.thumbnailUrl,
                 isPlaying,
                 exoPlayer
             )
@@ -191,49 +201,21 @@ fun VideoPlayerScreen(
             DisposableEffect(videoId) {
                 android.util.Log.d("VideoPlayerScreen", "DisposableEffect started for videoId: $videoId")
                 
-                val player: ExoPlayer? = try {
-                    // Reutilizar player del mini reproductor si existe
-                    if (existingPlayer != null && exoPlayer == null) {
-                        android.util.Log.d("VideoPlayerScreen", "Usando player del mini reproductor")
-                        existingPlayer.apply {
-                            videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-                        }
-                    } else if (exoPlayer != null) {
-                        android.util.Log.d("VideoPlayerScreen", "Reutilizando player actual")
-                        exoPlayer!!.apply {
-                            videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-                        }
-                    } else {
-                        android.util.Log.d("VideoPlayerScreen", "Creando nuevo player")
-                        val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(context)
-                        ExoPlayer.Builder(context)
-                            .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory))
-                            .build()
-                            .apply {
-                                videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-                                
-                                addListener(object : Player.Listener {
-                                    override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
-                                        android.util.Log.d("VideoPlayerScreen", 
-                                            "Video size changed: ${videoSize.width}x${videoSize.height}")
-                                        videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-                                    }
-                                })
-                            }
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("VideoPlayerScreen", "Error creating player", e)
-                    null
+                // Use shared player
+                val player = exoPlayer
+                
+                player.apply {
+                    videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
                 }
                 
                 // Solo continuar si el player se creó correctamente
                 if (player != null) {
                     android.util.Log.d("VideoPlayerScreen", "Player inicializado correctamente")
-                    android.util.Log.d("VideoPlayerScreen", "Video streams: ${videoDetails.videoStreams.size}")
-                    android.util.Log.d("VideoPlayerScreen", "Audio streams: ${videoDetails.audioStreams.size}")
                     
-                    // Solo preparar contenido si NO viene del mini player
-                    val isFromMiniPlayer = existingPlayer != null && exoPlayer == null
+                    // Verificar si ya estamos reproduciendo este video (Continuidad)
+                    // Comprobamos si hay un MediaItem y si el ID coincide (o si simplemente ya está reproduciendo algo y asumimos que es correcto si venimos del miniplayer)
+                    val isSameVideo = viewModel.isCurrentVideo(videoId)
+                    val isFromMiniPlayer = existingPlayer != null || isSameVideo
                     
                     if (!isFromMiniPlayer) {
                         android.util.Log.d("VideoPlayerScreen", "Preparando nuevo stream")
@@ -410,7 +392,8 @@ fun VideoPlayerScreen(
                     } else {
                         android.util.Log.d("VideoPlayerScreen", "Using existing mini player - keeping content")
                     }                // Asignar player DESPUÉS de prepararlo
-                exoPlayer = player
+                // Asignar player DESPUÉS de prepararlo
+                // exoPlayer = player // Removed: exoPlayer is now a val from ViewModel
                 
                 // TODO: Servicio de media desactivado temporalmente por crashes
                 // El servicio intenta crear MediaItems sin URI causando NullPointerException
@@ -431,12 +414,9 @@ fun VideoPlayerScreen(
                 }
                 
                 onDispose {
-                    // Solo liberar el player cuando no estamos minimizando
-                    if (player != null && !isMinimizing) {
-                        android.util.Log.d("VideoPlayerScreen", "Liberando player (no minimizado)")
-                        player.release()
-                    } else if (player != null) {
-                        android.util.Log.d("VideoPlayerScreen", "Manteniendo player activo (minimizado)")
+                    // No liberar el player aquí, es gestionado por PlayerManager
+                    if (!isMinimizing) {
+                        player.pause()
                     }
                 }
             }
@@ -523,10 +503,21 @@ fun VideoPlayerScreen(
                         )
                         .background(androidx.compose.ui.graphics.Color.Black)
                         .pointerInput(Unit) {
-                            detectVerticalDragGestures(
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                if (zoom > 1.1f) {
+                                    // Zoom in -> Fill
+                                    viewModel.setResizeMode(1) // FILL
+                                } else if (zoom < 0.9f) {
+                                    // Zoom out -> Fit
+                                    viewModel.setResizeMode(0) // FIT
+                                }
+                            }
+                        }
+                        .pointerInput(Unit) {
+                                                        detectVerticalDragGestures(
                                 onDragEnd = {
-                                    // Si desliza más de 150px hacia abajo, minimizar
-                                    if (dragOffsetY > 150f && !isFullscreen) {
+                                    // Si desliza más de 200px hacia abajo, minimizar
+                                    if (dragOffsetY > 200f && !isFullscreen) {
                                         val state = uiState
                                         if (state is VideoPlayerUiState.Success && onMinimize != null) {
                                             // Marcar que estamos minimizando
@@ -534,6 +525,7 @@ fun VideoPlayerScreen(
                                             onMinimize(
                                                 state.videoDetails.title,
                                                 state.videoDetails.uploader,
+                                                state.videoDetails.thumbnailUrl,
                                                 isPlaying,
                                                 exoPlayer
                                             )
@@ -541,14 +533,25 @@ fun VideoPlayerScreen(
                                             onNavigateBack()
                                         }
                                     }
+                                    // Reset drag offset con animación
                                     dragOffsetY = 0f
                                 },
                                 onVerticalDrag = { _, dragAmount ->
                                     if (!isFullscreen) {
-                                        dragOffsetY = (dragOffsetY + dragAmount).coerceAtLeast(0f)
+                                        // Solo permitir drag hacia abajo
+                                        dragOffsetY = (dragOffsetY + dragAmount).coerceAtLeast(0f).coerceAtMost(300f)
                                     }
                                 }
                             )
+                        }
+                        .offset(y = dragOffsetY.dp)
+                        .graphicsLayer {
+                            // Reducir escala ligeramente mientras se arrastra
+                            val scale = 1f - (dragOffsetY / 1000f).coerceIn(0f, 0.1f)
+                            scaleX = scale
+                            scaleY = scale
+                            // Reducir opacidad ligeramente
+                            alpha = 1f - (dragOffsetY / 800f).coerceIn(0f, 0.3f)
                         }
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
@@ -653,63 +656,76 @@ fun VideoPlayerScreen(
                             
                             playerViewRef = playerView
                         },
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .fillMaxSize()
                     )
-                    
+
                     // Controles personalizados
                     PlayerControls(
-                        isPlaying = isPlaying,
-                        currentPosition = currentPosition,
-                        duration = duration,
-                        bufferedPosition = bufferedPosition,
-                        onPlayPauseClick = {
-                            exoPlayer?.let { player ->
-                                if (player.isPlaying) player.pause() else player.play()
-                            }
-                        },
-                        onSeek = { position ->
-                            exoPlayer?.seekTo(position)
-                        },
-                        onRewind = {
-                            exoPlayer?.let { player ->
-                                player.seekTo((player.currentPosition - 10000).coerceAtLeast(0))
-                            }
-                        },
-                        onForward = {
-                            exoPlayer?.let { player ->
-                                player.seekTo((player.currentPosition + 10000).coerceAtMost(player.duration))
-                            }
-                        },
-                        onFullscreenClick = {
-                            viewModel.toggleFullscreen()
-                        },
-                        onSettingsClick = {
-                            viewModel.showSettingsSheet()
-                        },
-                        onResizeModeClick = {
-                            viewModel.cycleResizeMode()
-                        },
-                        onBackClick = {
-                            if (isFullscreen) {
+                            isPlaying = isPlaying,
+                            currentPosition = currentPosition,
+                            duration = duration,
+                            bufferedPosition = bufferedPosition,
+                            onPlayPauseClick = {
+                                exoPlayer?.let { player ->
+                                    if (player.isPlaying) player.pause() else player.play()
+                                }
+                            },
+                            onSeek = { position ->
+                                exoPlayer?.seekTo(position)
+                            },
+                            onRewind = {
+                                exoPlayer?.let { player ->
+                                    player.seekTo((player.currentPosition - 10000).coerceAtLeast(0))
+                                }
+                            },
+                            onForward = {
+                                exoPlayer?.let { player ->
+                                    player.seekTo((player.currentPosition + 10000).coerceAtMost(player.duration))
+                                }
+                            },
+                            onFullscreenClick = {
                                 viewModel.toggleFullscreen()
-                            } else {
-                                isMinimizing = true
-                                onMinimize?.invoke(
-                                    videoDetails.title,
-                                    videoDetails.uploader,
-                                    isPlaying,
-                                    exoPlayer
-                                )
-                            }
-                        },
-                        isFullscreen = isFullscreen,
-                        visible = showControls,
-                        videoTitle = videoDetails.title,
-                        resizeMode = resizeMode
-                    )
+                            },
+                            onSettingsClick = {
+                                viewModel.showSettingsSheet()
+                            },
+                            onResizeModeClick = {
+                                viewModel.cycleResizeMode()
+                            },
+                            onBackClick = {
+                                if (isFullscreen) {
+                                    viewModel.toggleFullscreen()
+                                } else {
+                                    isMinimizing = true
+                                    onMinimize?.invoke(
+                                        videoDetails.title,
+                                        videoDetails.uploader,
+                                        videoDetails.thumbnailUrl,
+                                        isPlaying,
+                                        exoPlayer
+                                    )
+                                }
+                            },
+                            onShareClick = {
+                                val sendIntent: android.content.Intent = android.content.Intent().apply {
+                                    action = android.content.Intent.ACTION_SEND
+                                    putExtra(android.content.Intent.EXTRA_TEXT, "https://youtu.be/$videoId")
+                                    type = "text/plain"
+                                }
+                                val shareIntent = android.content.Intent.createChooser(sendIntent, null)
+                                context.startActivity(shareIntent)
+                            },
+                            isFullscreen = isFullscreen,
+                            visible = showControls,
+                            videoTitle = videoDetails.title,
+                            resizeMode = resizeMode
+                        )
+
+
                 }
                 
-                // Video details (only in portrait mode)
                 if (!isFullscreen) {
                     LazyColumn(
                         modifier = Modifier
@@ -737,7 +753,13 @@ fun VideoPlayerScreen(
                                     onChannelClick?.invoke(channelId)
                                 },
                                 onShareClick = {
-                                    // TODO: Implement share functionality
+                                    val sendIntent: android.content.Intent = android.content.Intent().apply {
+                                        action = android.content.Intent.ACTION_SEND
+                                        putExtra(android.content.Intent.EXTRA_TEXT, "https://youtu.be/$videoId")
+                                        type = "text/plain"
+                                    }
+                                    val shareIntent = android.content.Intent.createChooser(sendIntent, null)
+                                    context.startActivity(shareIntent)
                                 }
                             )
                         }
@@ -775,17 +797,22 @@ fun VideoPlayerScreen(
             
             // Settings sheet
             if (showSettingsSheet) {
-                PlayerSettingsSheet(
+                                PlayerSettingsSheet(
                     videoStreams = videoDetails.videoStreams,
                     audioStreams = videoDetails.audioStreams,
+                    subtitleStreams = videoDetails.subtitleStreams,
                     currentQuality = playerSettings.selectedQuality,
                     currentAudioTrack = playerSettings.selectedAudioTrack,
+                    currentSubtitleTrack = null,
                     currentSpeed = playerSettings.playbackSpeed,
-                    subtitlesEnabled = playerSettings.subtitlesEnabled,
+                    subtitlesEnabled = false,
+                    musicModeEnabled = false,
                     onQualitySelected = { viewModel.selectQuality(it) },
                     onAudioSelected = { viewModel.selectAudioTrack(it) },
+                    onSubtitleSelected = { },
                     onSpeedSelected = { viewModel.setPlaybackSpeed(it) },
-                    onSubtitlesToggle = { viewModel.toggleSubtitles() },
+                    onSubtitlesToggle = { },
+                    onMusicModeToggle = { },
                     onDismiss = { viewModel.hideSettingsSheet() }
                 )
             }

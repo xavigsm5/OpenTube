@@ -263,13 +263,18 @@ fun SearchScreen(
                         
                         if (state.hasMore) {
                             item {
-                                Button(
-                                    onClick = { viewModel.loadMore() },
+                                Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(16.dp)
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Text("Cargar más")
+                                    CircularProgressIndicator()
+                                    
+                                    // Trigger load more when this item becomes visible
+                                    LaunchedEffect(Unit) {
+                                        viewModel.loadMore()
+                                    }
                                 }
                             }
                         }

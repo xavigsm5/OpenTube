@@ -200,6 +200,12 @@ fun OpenTubeNavHost(
                         android.util.Log.d("Navigation", "Home: Navigating to video: $videoId")
                         navController.navigate(Screen.VideoPlayer.createRoute(videoId))
                     },
+                    onPlaylistClick = { playlistId ->
+                        navController.navigate(Screen.PlaylistDetail.createRoute(playlistId))
+                    },
+                    onAlbumClick = { albumId ->
+                        navController.navigate(Screen.AlbumDetail.createRoute(albumId))
+                    },
                     onSearchClick = {
                         navController.navigate(Screen.Search.route)
                     }
@@ -224,6 +230,34 @@ fun OpenTubeNavHost(
                     },
                     onChannelClick = { channelId ->
                         navController.navigate(Screen.Channel.createRoute(channelId))
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.PlaylistDetail.route,
+                arguments = listOf(navArgument("playlistId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val playlistId = backStackEntry.arguments?.getString("playlistId") ?: return@composable
+                com.opentube.ui.screens.playlist.PlaylistScreen(
+                    playlistId = playlistId,
+                    onBackClick = { navController.navigateUp() },
+                    onVideoClick = { videoId ->
+                        navController.navigate(Screen.VideoPlayer.createRoute(videoId))
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.AlbumDetail.route,
+                arguments = listOf(navArgument("albumId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val albumId = backStackEntry.arguments?.getString("albumId") ?: return@composable
+                com.opentube.ui.screens.album.AlbumScreen(
+                    albumId = albumId,
+                    onBackClick = { navController.navigateUp() },
+                    onVideoClick = { videoId ->
+                        navController.navigate(Screen.VideoPlayer.createRoute(videoId))
                     }
                 )
             }
@@ -280,11 +314,12 @@ fun OpenTubeNavHost(
                             }
                         }
                     },
-                    onMinimize = { title, channel, isPlaying, player ->
+                    onMinimize = { title, channel, thumbnailUrl, isPlaying, player ->
                         miniPlayerViewModel.showMiniPlayer(
                             videoId = videoId,
                             title = title,
                             channelName = channel,
+                            thumbnailUrl = thumbnailUrl,
                             isPlaying = isPlaying,
                             player = player
                         )
@@ -337,12 +372,15 @@ fun OpenTubeNavHost(
         } // Fin del NavHost
             
         // Mini player positioned above bottom bar
+        // Mini Player (Floating PiP)
         if (!isOnVideoPlayer && miniPlayerState.isVisible) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .offset(y = if (showBottomBar) -paddingValues.calculateBottomPadding() else 0.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(
+                        bottom = if (showBottomBar) paddingValues.calculateBottomPadding() + 16.dp else 16.dp,
+                        end = 16.dp
+                    )
             ) {
                 MiniPlayer(
                     state = miniPlayerState,
@@ -354,6 +392,12 @@ fun OpenTubeNavHost(
                     },
                     onClick = {
                         navController.navigate(Screen.VideoPlayer.createRoute(miniPlayerState.videoId))
+                    },
+                    onSeekForward = {
+                        miniPlayerViewModel.seekForward()
+                    },
+                    onSeekBackward = {
+                        miniPlayerViewModel.seekBackward()
                     }
                 )
             }

@@ -8,10 +8,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
-import javax.inject.Singleton
 
 @HiltViewModel
-class MiniPlayerViewModel @Inject constructor() : ViewModel() {
+class MiniPlayerViewModel @Inject constructor(
+    private val playerManager: com.opentube.player.PlayerManager
+) : ViewModel() {
     private val _miniPlayerState = MutableStateFlow(MiniPlayerState())
     val miniPlayerState: StateFlow<MiniPlayerState> = _miniPlayerState.asStateFlow()
     
@@ -19,6 +20,7 @@ class MiniPlayerViewModel @Inject constructor() : ViewModel() {
         videoId: String,
         title: String,
         channelName: String,
+        thumbnailUrl: String,
         isPlaying: Boolean = true,
         player: ExoPlayer? = null
     ) {
@@ -26,9 +28,10 @@ class MiniPlayerViewModel @Inject constructor() : ViewModel() {
             videoId = videoId,
             title = title,
             channelName = channelName,
+            thumbnailUrl = thumbnailUrl,
             isPlaying = isPlaying,
             isVisible = true,
-            player = player
+            player = playerManager.player // Use shared player
         )
     }
     
@@ -37,13 +40,12 @@ class MiniPlayerViewModel @Inject constructor() : ViewModel() {
         _miniPlayerState.value = _miniPlayerState.value.copy(isVisible = false)
     }
     
-    // Cierra completamente y libera el player (cuando se presiona el botón X)
+    // Cierra completamente (cuando se presiona el botón X)
     fun closeMiniPlayer() {
         val currentState = _miniPlayerState.value
-        currentState.player?.let { player ->
-            android.util.Log.d("MiniPlayerViewModel", "Liberando player desde mini reproductor")
-            player.release()
-        }
+        // Pause player instead of releasing
+        playerManager.pause()
+        
         _miniPlayerState.value = currentState.copy(
             isVisible = false,
             player = null
@@ -71,6 +73,18 @@ class MiniPlayerViewModel @Inject constructor() : ViewModel() {
     
     fun updatePlayState(isPlaying: Boolean) {
         _miniPlayerState.value = _miniPlayerState.value.copy(isPlaying = isPlaying)
+    }
+    
+    fun seekForward() {
+        _miniPlayerState.value.player?.let { player ->
+            player.seekTo(player.currentPosition + 10000)
+        }
+    }
+    
+    fun seekBackward() {
+        _miniPlayerState.value.player?.let { player ->
+            player.seekTo((player.currentPosition - 10000).coerceAtLeast(0))
+        }
     }
     
     override fun onCleared() {

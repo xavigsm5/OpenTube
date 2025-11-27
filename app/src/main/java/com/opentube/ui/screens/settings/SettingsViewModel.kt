@@ -19,7 +19,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+import com.opentube.data.local.dataStore
+
 
 data class AppSettings(
     val theme: ThemeMode = ThemeMode.DARK,
@@ -28,7 +29,11 @@ data class AppSettings(
     val historyEnabled: Boolean = true,
     val notificationsEnabled: Boolean = true,
     val dataSaverMode: Boolean = false,
-    val autoplayOnMobileData: Boolean = false
+    val autoplayOnMobileData: Boolean = false,
+    val musicModeEnabled: Boolean = false,
+    val contentLanguage: String = "es",
+    val contentCountry: String = "ES",
+    val materialYouEnabled: Boolean = true
 )
 
 enum class ThemeMode {
@@ -45,7 +50,8 @@ enum class ThemeMode {
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val musicModeManager: com.opentube.ui.theme.MusicModeManager
 ) : ViewModel() {
     
     private object PreferencesKeys {
@@ -56,6 +62,10 @@ class SettingsViewModel @Inject constructor(
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         val DATA_SAVER_MODE = booleanPreferencesKey("data_saver_mode")
         val AUTOPLAY_ON_MOBILE_DATA = booleanPreferencesKey("autoplay_on_mobile_data")
+        val MUSIC_MODE_ENABLED = booleanPreferencesKey("music_mode_enabled")
+        val CONTENT_LANGUAGE = stringPreferencesKey("content_language")
+        val CONTENT_COUNTRY = stringPreferencesKey("content_country")
+        val MATERIAL_YOU_ENABLED = booleanPreferencesKey("material_you_enabled")
     }
     
     val settings: StateFlow<AppSettings> = context.dataStore.data
@@ -69,7 +79,11 @@ class SettingsViewModel @Inject constructor(
                 historyEnabled = preferences[PreferencesKeys.HISTORY_ENABLED] ?: true,
                 notificationsEnabled = preferences[PreferencesKeys.NOTIFICATIONS_ENABLED] ?: true,
                 dataSaverMode = preferences[PreferencesKeys.DATA_SAVER_MODE] ?: false,
-                autoplayOnMobileData = preferences[PreferencesKeys.AUTOPLAY_ON_MOBILE_DATA] ?: false
+                autoplayOnMobileData = preferences[PreferencesKeys.AUTOPLAY_ON_MOBILE_DATA] ?: false,
+                musicModeEnabled = preferences[PreferencesKeys.MUSIC_MODE_ENABLED] ?: false,
+                contentLanguage = preferences[PreferencesKeys.CONTENT_LANGUAGE] ?: "es",
+                contentCountry = preferences[PreferencesKeys.CONTENT_COUNTRY] ?: "ES",
+                materialYouEnabled = preferences[PreferencesKeys.MATERIAL_YOU_ENABLED] ?: true
             )
         }
         .stateIn(
@@ -77,6 +91,15 @@ class SettingsViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = AppSettings()
         )
+    
+    init {
+        // Sync MusicModeManager with saved preference
+        viewModelScope.launch {
+            settings.collect { appSettings ->
+                musicModeManager.setMusicMode(appSettings.musicModeEnabled)
+            }
+        }
+    }
     
     fun setTheme(theme: ThemeMode) {
         viewModelScope.launch {
@@ -130,6 +153,43 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             context.dataStore.edit { preferences ->
                 preferences[PreferencesKeys.AUTOPLAY_ON_MOBILE_DATA] = enabled
+            }
+        }
+    }
+    
+    fun setMusicModeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            context.dataStore.edit { preferences ->
+                preferences[PreferencesKeys.MUSIC_MODE_ENABLED] = enabled
+            }
+            // Also update MusicModeManager immediately
+            musicModeManager.setMusicMode(enabled)
+        }
+    }
+
+    fun setContentLanguage(language: String) {
+        viewModelScope.launch {
+            context.dataStore.edit { preferences ->
+                preferences[PreferencesKeys.CONTENT_LANGUAGE] = language
+            }
+        }
+    }
+
+    fun setContentCountry(country: String) {
+        viewModelScope.launch {
+            context.dataStore.edit { preferences ->
+                preferences[PreferencesKeys.CONTENT_COUNTRY] = country
+            }
+        }
+    }
+
+    fun setMaterialYouEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            context.dataStore.edit { preferences ->
+                preferences[PreferencesKeys.MATERIAL_YOU_ENABLED] = enabled
+                if (!enabled) {
+                    preferences[PreferencesKeys.THEME] = ThemeMode.YOUTUBE.name
+                }
             }
         }
     }

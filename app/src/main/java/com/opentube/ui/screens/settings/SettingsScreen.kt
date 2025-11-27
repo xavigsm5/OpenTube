@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -26,6 +27,8 @@ fun SettingsScreen(
     var showThemeDialog by remember { mutableStateOf(false) }
     var showQualityDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showLanguageDialog by remember { mutableStateOf(false) }
+    var showCountryDialog by remember { mutableStateOf(false) }
     
     Scaffold(
         topBar = {
@@ -47,9 +50,44 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            // Content Section
+            item {
+                SectionHeader(title = "Contenido")
+            }
+            
+            item {
+                SettingsItem(
+                    icon = Icons.Default.Language,
+                    title = "Idioma del contenido",
+                    subtitle = getLanguageName(settings.contentLanguage),
+                    onClick = { showLanguageDialog = true }
+                )
+            }
+            
+            item {
+                SettingsItem(
+                    icon = Icons.Default.Public,
+                    title = "País del contenido",
+                    subtitle = getCountryName(settings.contentCountry),
+                    onClick = { showCountryDialog = true }
+                )
+            }
+            
+            item { Divider() }
+
             // Appearance Section
             item {
                 SectionHeader(title = "Apariencia")
+            }
+            
+            item {
+                SwitchSettingsItem(
+                    icon = Icons.Default.Palette,
+                    title = "Material UI",
+                    subtitle = if (settings.materialYouEnabled) "Usando diseño Material You" else "Usando diseño estilo YouTube",
+                    checked = settings.materialYouEnabled,
+                    onCheckedChange = { viewModel.setMaterialYouEnabled(it) }
+                )
             }
             
             item {
@@ -70,6 +108,8 @@ fun SettingsScreen(
                     onClick = { showThemeDialog = true }
                 )
             }
+            
+            item { Divider() }
             
             item { Divider() }
             
@@ -239,6 +279,34 @@ fun SettingsScreen(
     if (showAboutDialog) {
         AboutDialog(
             onDismiss = { showAboutDialog = false }
+        )
+    }
+    
+    // Language Dialog
+    if (showLanguageDialog) {
+        SelectionDialog(
+            title = "Seleccionar idioma",
+            options = languageMap,
+            currentValue = settings.contentLanguage,
+            onSelected = { 
+                viewModel.setContentLanguage(it)
+                showLanguageDialog = false
+            },
+            onDismiss = { showLanguageDialog = false }
+        )
+    }
+    
+    // Country Dialog
+    if (showCountryDialog) {
+        SelectionDialog(
+            title = "Seleccionar país",
+            options = countryMap,
+            currentValue = settings.contentCountry,
+            onSelected = { 
+                viewModel.setContentCountry(it)
+                showCountryDialog = false
+            },
+            onDismiss = { showCountryDialog = false }
         )
     }
 }
@@ -468,6 +536,64 @@ private fun AboutDialog(
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cerrar")
+            }
+        }
+    )
+}
+
+private val languageMap: Map<String, String> by lazy {
+    java.util.Locale.getISOLanguages()
+        .map { code -> code to java.util.Locale(code).getDisplayLanguage(java.util.Locale.getDefault()) }
+        .sortedBy { it.second }
+        .toMap()
+}
+
+private val countryMap: Map<String, String> by lazy {
+    java.util.Locale.getISOCountries()
+        .map { code -> code to java.util.Locale("", code).getDisplayCountry(java.util.Locale.getDefault()) }
+        .sortedBy { it.second }
+        .toMap()
+}
+
+private fun getLanguageName(code: String): String = languageMap[code] ?: code
+private fun getCountryName(code: String): String = countryMap[code] ?: code
+
+@Composable
+private fun SelectionDialog(
+    title: String,
+    options: Map<String, String>,
+    currentValue: String,
+    onSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = title) },
+        text = {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 400.dp)
+            ) {
+                items(options.toList()) { (key, name) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelected(key) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentValue == key,
+                            onClick = { onSelected(key) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = name)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "Cancelar")
             }
         }
     )

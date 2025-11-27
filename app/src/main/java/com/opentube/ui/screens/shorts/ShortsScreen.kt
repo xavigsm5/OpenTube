@@ -491,7 +491,7 @@ fun ShortItem(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.5f),
+                    .weight(1f), // Ocupar el espacio restante
                 shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
                 color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 8.dp
@@ -543,12 +543,17 @@ fun ShortItem(
                             )
                         }
                     } else {
+                        val bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                        
                         LazyColumn(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp),
-                            contentPadding = PaddingValues(vertical = 8.dp),
+                            contentPadding = PaddingValues(
+                                top = 8.dp, 
+                                bottom = 16.dp + bottomPadding // Padding extra para la barra de navegación
+                            ),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(comments.size) { index ->

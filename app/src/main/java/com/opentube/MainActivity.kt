@@ -11,7 +11,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import com.opentube.ui.screens.settings.dataStore
+import com.opentube.data.local.dataStore
 import com.opentube.ui.screens.settings.AppSettings
 import com.opentube.ui.screens.settings.ThemeMode
 import com.opentube.ui.theme.OpenTubeTheme
@@ -26,17 +26,29 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
+        // Ensure content is drawn behind system bars globally to fix padding issues
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        
         setContent {
             val context = LocalContext.current
             val themeMode by context.dataStore.data
                 .map { preferences ->
-                    preferences[stringPreferencesKey("theme")]?.let { 
-                        ThemeMode.valueOf(it) 
+                    preferences[stringPreferencesKey("theme")]?.let { themeName ->
+                        ThemeMode.valueOf(themeName) 
                     } ?: ThemeMode.DARK
                 }
                 .collectAsState(initial = ThemeMode.DARK)
+                
+            val materialYouEnabled by context.dataStore.data
+                .map { preferences ->
+                    preferences[androidx.datastore.preferences.core.booleanPreferencesKey("material_you_enabled")] ?: false
+                }
+                .collectAsState(initial = false)
             
-            OpenTubeTheme(themeMode = themeMode) {
+            OpenTubeTheme(
+                themeMode = themeMode,
+                materialYouEnabled = materialYouEnabled
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

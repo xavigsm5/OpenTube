@@ -34,11 +34,17 @@ import kotlin.math.absoluteValue
 @Composable
 fun HomeScreen(
     onVideoClick: (String) -> Unit,
+    onPlaylistClick: (String) -> Unit,
+    onAlbumClick: (String) -> Unit,
     onSearchClick: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    
+
+    
+    // Modo normal de videos (YouTube-like)
     
     Scaffold(
         topBar = {
@@ -123,6 +129,25 @@ fun HomeScreen(
                                 onClick = { onVideoClick(video.videoId) },
                                 modifier = Modifier.padding(horizontal = 16.dp)
                             )
+                        }
+                        
+                        // Infinite Scroll Trigger & Loading Indicator
+                        item {
+                            if (state.isLoadingMore) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            } else if (state.nextPageUrl != null) {
+                                // Trigger load more when this item becomes visible
+                                LaunchedEffect(Unit) {
+                                    viewModel.loadMore()
+                                }
+                            }
                         }
                     }
                 }
