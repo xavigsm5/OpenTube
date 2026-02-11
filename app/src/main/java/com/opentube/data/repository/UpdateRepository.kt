@@ -207,28 +207,50 @@ class UpdateRepository @Inject constructor(
     }
     
     /**
-     * Compare version strings (e.g., "1.2.0" vs "1.1.5")
-     * Returns true if latestVersion is newer than currentVersion
+     * Compare version strings robustly (e.g., "1.1.2n" vs "1.1.2")
+     * Handles mixed numeric and alphanumeric parts.
      */
     private fun isNewerVersion(latestVersion: String, currentVersion: String): Boolean {
         try {
-            val latestParts = latestVersion.split(".").map { it.toIntOrNull() ?: 0 }
-            val currentParts = currentVersion.split(".").map { it.toIntOrNull() ?: 0 }
+            // Remove 'v' or 'V' prefixes safely
+            val v1 = latestVersion.replace(Regex("^[vV]"), "")
+            val v2 = currentVersion.replace(Regex("^[vV]"), "")
             
-            val maxLength = maxOf(latestParts.size, currentParts.size)
+            val parts1 = v1.split(".")
+            val parts2 = v2.split(".")
             
-            for (i in 0 until maxLength) {
-                val latest = latestParts.getOrElse(i) { 0 }
-                val current = currentParts.getOrElse(i) { 0 }
+            val length = maxOf(parts1.size, parts2.size)
+            
+            for (i in 0 until length) {
+                val part1 = parts1.getOrElse(i) { "" }
+                val part2 = parts2.getOrElse(i) { "" }
                 
-                if (latest > current) return true
-                if (latest < current) return false
+                if (part1 == part2) continue
+                
+                // Extract numeric part at start: "2n" -> 2, "10" -> 10
+                val num1 = part1.takeWhile { it.isDigit() }.toIntOrNull() ?: 0
+                val num2 = part2.takeWhile { it.isDigit() }.toIntOrNull() ?: 0
+                
+                if (num1 != num2) {
+                    return num1 > num2
+                }
+                
+                // If numbers are equal, compare suffixes ("n" vs "")
+                // "2n" > "2" because "n" > ""
+                val suffix1 = part1.dropWhile { it.isDigit() }
+                val suffix2 = part2.dropWhile { it.isDigit() }
+                
+                val comparison = suffix1.compareTo(suffix2)
+                if (comparison != 0) {
+                    return comparison > 0
+                }
             }
             
-            return false // Versions are equal
+            return false // Versions are effectively equal
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "Error comparing versions", e)
-            return false
+            android.util.Log.e(TAG, "Error comparing versions: $latestVersion vs $currentVersion", e)
+            // Fallback to simple string comparison if parsing fails extensively
+            return latestVersion > currentVersion
         }
     }
 }
