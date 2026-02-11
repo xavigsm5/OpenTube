@@ -4,16 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
@@ -36,11 +27,11 @@ fun SplashScreen(
     val progress = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        // Animar el progreso durante 2.5 segundos
+        // Animar el progreso durante 1 segundo (más rápido)
         progress.animateTo(
             targetValue = 1f,
             animationSpec = tween(
-                durationMillis = 2500,
+                durationMillis = 1000,
                 easing = LinearEasing
             )
         )
@@ -54,25 +45,26 @@ fun SplashScreen(
             .background(Color.Black), // Fondo negro como en YouTube
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 32.dp)
         ) {
-            // Icono de Play (similar al logo de YouTube/OpenTube)
+            // Icono de Play (a la izquierda)
             Icon(
                 imageVector = Icons.Default.PlayArrow,
                 contentDescription = "OpenTube Logo",
                 tint = Color.White,
-                modifier = Modifier.size(100.dp)
+                modifier = Modifier.size(48.dp)
             )
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.width(16.dp))
             
             // Barra de progreso roja
             LinearProgressIndicator(
                 progress = progress.value,
                 modifier = Modifier
-                    .width(150.dp) // Ancho fijo para que no ocupe toda la pantalla
+                    .weight(1f) // Ocupar el espacio restante o un ancho fijo
                     .height(4.dp), // Altura delgada
                 color = Color.Red, // Color de YouTube
                 trackColor = Color.DarkGray, // Color de fondo de la pista
