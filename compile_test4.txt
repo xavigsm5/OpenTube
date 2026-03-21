@@ -16,7 +16,6 @@
 > Task :app:processDebugManifest UP-TO-DATE
 > Task :app:processDebugManifestForPackage UP-TO-DATE
 > Task :app:processDebugResources UP-TO-DATE
-> Task :app:kspDebugKotlin UP-TO-DATE
 > Task :app:javaPreCompileDebug UP-TO-DATE
 > Task :app:mergeDebugShaders UP-TO-DATE
 > Task :app:compileDebugShaders NO-SOURCE
@@ -34,15 +33,11 @@
 > Task :app:validateSigningDebug UP-TO-DATE
 > Task :app:writeDebugAppMetadata UP-TO-DATE
 > Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:kspDebugKotlin
 
 > Task :app:compileDebugKotlin FAILED
-e: file:///C:/Users/Xavi/Documents/OpenTube/app/src/main/java/com/opentube/ui/navigation/OpenTubeNavHost.kt:214:45 Unresolved reference: showPlayer
-e: file:///C:/Users/Xavi/Documents/OpenTube/app/src/main/java/com/opentube/ui/navigation/OpenTubeNavHost.kt:251:45 Unresolved reference: showPlayer
-e: file:///C:/Users/Xavi/Documents/OpenTube/app/src/main/java/com/opentube/ui/navigation/OpenTubeNavHost.kt:268:45 Unresolved reference: showPlayer
-e: file:///C:/Users/Xavi/Documents/OpenTube/app/src/main/java/com/opentube/ui/navigation/OpenTubeNavHost.kt:282:45 Unresolved reference: showPlayer
-e: file:///C:/Users/Xavi/Documents/OpenTube/app/src/main/java/com/opentube/ui/navigation/OpenTubeNavHost.kt:340:26 Unresolved reference: graphicsLayer
-e: file:///C:/Users/Xavi/Documents/OpenTube/app/src/main/java/com/opentube/ui/navigation/OpenTubeNavHost.kt:341:29 Unresolved reference: translationY
-e: file:///C:/Users/Xavi/Documents/OpenTube/app/src/main/java/com/opentube/ui/navigation/OpenTubeNavHost.kt:366:49 Unresolved reference: showPlayer
+e: file:///C:/Users/Xavi/Documents/OpenTube/app/src/main/java/com/opentube/ui/screens/splash/SplashScreen.kt:34:28 Unresolved reference: launch
+e: file:///C:/Users/Xavi/Documents/OpenTube/app/src/main/java/com/opentube/ui/screens/splash/SplashScreen.kt:35:28 Suspension functions can be called only within coroutine body
 
 FAILURE: Build failed with an exception.
 
@@ -63,5 +58,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.9/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD FAILED in 11s
-30 actionable tasks: 2 executed, 28 up-to-date
+BUILD FAILED in 16s
+30 actionable tasks: 3 executed, 27 up-to-date

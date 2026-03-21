@@ -58,8 +58,8 @@ fun VideoInfoSection(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                maxLines = Int.MAX_VALUE,
+                overflow = TextOverflow.Visible
             )
 
             Spacer(modifier = Modifier.height(8.dp))

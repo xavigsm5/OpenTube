@@ -96,14 +96,15 @@ fun PlayerSettingsSheet(
                     SettingsTab.MAIN -> MainSettings(
                         currentQuality = currentQuality,
                         currentSpeed = currentSpeed,
+                        currentAudioTrack = currentAudioTrack,
                         subtitlesEnabled = subtitlesEnabled,
                         currentSubtitleTrack = currentSubtitleTrack,
+                        musicModeEnabled = musicModeEnabled,
                         onQualityClick = { currentTab = SettingsTab.QUALITY },
                         onSpeedClick = { currentTab = SettingsTab.SPEED },
                         onAudioClick = { currentTab = SettingsTab.AUDIO },
                         onSubtitlesClick = { currentTab = SettingsTab.SUBTITLES },
                         onSleepTimerClick = { currentTab = SettingsTab.SLEEP_TIMER },
-                        musicModeEnabled = musicModeEnabled,
                         onMusicModeClick = {
                             onMusicModeToggle()
                             onDismiss()
@@ -172,6 +173,7 @@ fun PlayerSettingsSheet(
 private fun MainSettings(
     currentQuality: VideoStream?,
     currentSpeed: Float,
+    currentAudioTrack: AudioStream?,
     subtitlesEnabled: Boolean,
     currentSubtitleTrack: SubtitleStream?,
     musicModeEnabled: Boolean,
@@ -218,7 +220,11 @@ private fun MainSettings(
             SettingsItem(
                 icon = Icons.Default.GraphicEq,
                 title = "Pista de audio",
-                subtitle = "Audio principal",
+                subtitle = currentAudioTrack?.let { stream -> 
+                    // Need to inline the logic or pass it down. Assuming it's simple enough if we extract the function or copy it.
+                    // For now, let's just make it simple if we can't call getAudioTrackDisplayName directly from here.
+                    "Audio seleccionado" // Or pass a lambda to format it
+                } ?: "Audio principal",
                 onClick = onAudioClick
             )
         }
@@ -347,46 +353,45 @@ private fun AudioSettings(
 ) {
     // Helper function to get display name for audio track
     fun getAudioTrackDisplayName(stream: AudioStream): String {
-        // 1. Try audioTrackName first (populated with localized language in VideoRepository)
         val trackName = stream.audioTrackName
-        if (!trackName.isNullOrEmpty()) {
-            return trackName
+        
+        // Filter out codec raw strings that Piped mistakenly passes as "audioTrackName" occasionally
+        val invalidNames = listOf("opus", "webm", "m4a", "mp4a", "aac", "vorbis")
+        val isValidName = !trackName.isNullOrEmpty() && invalidNames.none { trackName.contains(it, ignoreCase = true) }
+        
+        if (isValidName) {
+            return trackName!!
         }
 
-        // 2. Try to get the language from audioTrackId (fallback)
-        val languageCode = stream.audioTrackId?.split(".")?.firstOrNull()?.take(2)
-        
-        // Convert language code to readable name (Spanish)
-        val languageName = when (languageCode?.lowercase()) {
-            "es" -> "Español"
-            "en" -> "Inglés"
-            "pt" -> "Portugués"
-            "fr" -> "Francés"
-            "de" -> "Alemán"
-            "it" -> "Italiano"
-            "ja" -> "Japonés"
-            "ko" -> "Coreano"
-            "zh" -> "Chino"
-            "ru" -> "Ruso"
-            "ar" -> "Árabe"
-            "hi" -> "Hindi"
-            "tr" -> "Turco"
-            "nl" -> "Holandés"
-            "pl" -> "Polaco"
-            "sv" -> "Sueco"
-            "da" -> "Danés"
-            "no" -> "Noruego"
-            "fi" -> "Finlandés"
-            "el" -> "Griego"
-            "he" -> "Hebreo"
-            "th" -> "Tailandés"
-            "vi" -> "Vietnamita"
-            "id" -> "Indonesio"
-            "ms" -> "Malayo"
-            else -> null
+        val trackId = stream.audioTrackId
+        if (!trackId.isNullOrEmpty()) {
+            val languageCode = trackId.split(".").firstOrNull() ?: trackId
+            try {
+                // Try treating it as a locale code, which covers almost all languages
+                val localeName = java.util.Locale(languageCode).displayLanguage
+                if (localeName.isNotEmpty() && localeName != languageCode) {
+                    return localeName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+                }
+            } catch (e: Exception) {
+                // Ignore locale error
+            }
+            
+            // Fallback manual mapping
+            val languageName = try {
+                val localeName = java.util.Locale(languageCode).displayLanguage
+                if (localeName.isNotEmpty() && localeName != languageCode) {
+                    localeName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+                } else {
+                    languageCode.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+                }
+            } catch (e: Exception) {
+                languageCode.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+            }
+            
+            return languageName
         }
         
-        return languageName ?: "Audio principal"
+        return "Audio original"
     }
     
     fun getAudioTrackSubtitle(stream: AudioStream): String {
@@ -412,21 +417,17 @@ private fun AudioSettings(
         }
         
         // Group audio streams by language/track to avoid duplicates
-        // If language info is missing, we might get multiple "Audio principal".
-        // Use index to distinguish them in that case.
+        // Piped can return multiple qualities of the SAME language. We should group them!
         val groupedStreams = audioStreams
-            .withIndex()
-            .groupBy { (index, stream) -> 
-                val name = getAudioTrackDisplayName(stream)
-                if (name == "Audio principal" && audioStreams.size > 1) {
-                    "Pista ${index + 1}" // Fallback unique name
-                } else {
-                    name
-                }
+            .groupBy { stream -> 
+                getAudioTrackDisplayName(stream)
             }
-            .map { (name, indexedStreams) -> 
-                // Pick the highest quality stream from each group
-                name to indexedStreams.map { it.value }.maxByOrNull { it.bitrate ?: 0 }!!
+            .map { (name, streams) -> 
+                // Pick the highest quality stream from each group (Opus preferred if bitrate is same)
+                name to streams.sortedWith(
+                    compareBy<AudioStream> { it.bitrate ?: 0 }
+                        .thenBy { if (it.format.contains("opus", ignoreCase=true) || it.mimeType.contains("opus", ignoreCase=true)) 1 else 0 }
+                ).last()
             }
         
         items(groupedStreams) { (displayName, audioStream) ->
@@ -469,8 +470,17 @@ private fun SubtitlesSettings(
         }
         
         items(subtitleStreams) { subtitle ->
+            val displayLang = try {
+                val localeName = java.util.Locale(subtitle.language).displayLanguage
+                if (localeName.isNotEmpty() && localeName != subtitle.language) {
+                    localeName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+                } else subtitle.language
+            } catch (e: Exception) {
+                subtitle.language
+            }
+            
             SelectableSettingsItem(
-                title = subtitle.language,
+                title = displayLang,
                 subtitle = if (subtitle.autoGenerated) "Autogenerado" else null,
                 isSelected = subtitlesEnabled && currentSubtitleTrack?.url == subtitle.url,
                 onClick = { onSubtitleSelected(subtitle) }

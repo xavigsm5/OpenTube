@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -128,17 +129,15 @@ fun HomeScreen(
                     }
                     IconButton(onClick = onSearchClick) {
                         Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Buscar",
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Ajustes",
                             tint = MaterialTheme.colorScheme.onBackground
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
-                ),
-                // Fix: Usar statusBars padding en lugar de hardcoded values
-                modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars)
+                )
             )
         },
         contentWindowInsets = WindowInsets(0.dp)
@@ -181,7 +180,7 @@ fun HomeScreen(
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxSize(),
-                            contentPadding = PaddingValues(vertical = 16.dp),
+                            contentPadding = PaddingValues(top = 16.dp, bottom = 110.dp), // Extra padding to show content below Blur bar
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                         // Tarjetas de categorías
@@ -211,8 +210,7 @@ fun HomeScreen(
                         ) { video ->
                             VideoCard(
                                 video = video,
-                                onClick = { onVideoClick(video.videoId) },
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                                onClick = { onVideoClick(video.videoId) }
                             )
                         }
                         

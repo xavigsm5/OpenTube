@@ -33,6 +33,7 @@ data class MiniPlayerState(
     val thumbnailUrl: String = "",
     val isPlaying: Boolean = false,
     val isVisible: Boolean = false,
+    val isExpanded: Boolean = false,
     val player: androidx.media3.exoplayer.ExoPlayer? = null
 )
 

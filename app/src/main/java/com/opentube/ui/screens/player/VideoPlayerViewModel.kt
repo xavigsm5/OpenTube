@@ -58,7 +58,21 @@ class VideoPlayerViewModel @Inject constructor(
     
     val player = playerManager.player
     
-    private val videoId: String = checkNotNull(savedStateHandle["videoId"])
+    private var videoId: String = savedStateHandle["videoId"] ?: ""
+    
+    fun setVideoId(id: String) {
+        if (id.isEmpty()) return
+        if (this.videoId == id) {
+            // Already initialized for this video, just ensure we show success if cached
+            if (playerManager.currentVideoId.value == id && playerManager.cachedVideoDetails != null) {
+                // UI should already be in success state, or we can force it
+            }
+            return
+        }
+        
+        this.videoId = id
+        initializeVideo()
+    }
     
     private val _uiState = MutableStateFlow<VideoPlayerUiState>(VideoPlayerUiState.Loading)
     val uiState: StateFlow<VideoPlayerUiState> = _uiState.asStateFlow()
@@ -67,6 +81,12 @@ class VideoPlayerViewModel @Inject constructor(
     val showSettingsSheet: StateFlow<Boolean> = _showSettingsSheet.asStateFlow()
     
     init {
+        if (videoId.isNotEmpty()) {
+            initializeVideo()
+        }
+    }
+    
+    private fun initializeVideo() {
         android.util.Log.d("VideoPlayerViewModel", "=== ViewModel INIT for videoId: $videoId ===")
         
         // Check if we are already playing this video and have cached details
@@ -139,18 +159,28 @@ class VideoPlayerViewModel @Inject constructor(
                                 // Guardar en historial
                                 saveToHistory(details)
                                 
-                                // Tomar el mejor video disponible
+                                // Tomar el mejor video disponible (capped at 1080p for initial load to avoid buffering)
+                                // User can manually select higher quality afterwards
                                 val bestVideo = details.videoStreams
-                                    .filter { !it.url.isNullOrEmpty() }
+                                    .filter { !it.url.isNullOrEmpty() && (it.height ?: 0) <= 1080 }
                                     .maxByOrNull { it.height ?: 0 }
+                                    ?: details.videoStreams // Fallback: if no <=1080p streams, take any
+                                        .filter { !it.url.isNullOrEmpty() }
+                                        .minByOrNull { it.height ?: Int.MAX_VALUE }
                                 
                                 android.util.Log.d("VideoPlayerViewModel", "Best video: ${bestVideo?.quality} (videoOnly=${bestVideo?.videoOnly})")
                                 
                                 // Si el video es solo video (sin audio), necesitamos audio
                                 val bestAudio = if (bestVideo?.videoOnly == true) {
-                                    details.audioStreams
-                                        .filter { !it.url.isNullOrEmpty() }
-                                        .maxByOrNull { it.bitrate ?: 0 }
+                                    val validAudioStreams = details.audioStreams.filter { !it.url.isNullOrEmpty() }
+                                    
+                                    // Preferir pista original
+                                    val originalAudio = validAudioStreams.find { 
+                                        it.audioTrackId?.contains("original", ignoreCase = true) == true ||
+                                        it.audioTrackName?.contains("original", ignoreCase = true) == true 
+                                    } ?: validAudioStreams.find { it.audioTrackId == null && it.audioTrackName == null }
+                                    
+                                    originalAudio ?: validAudioStreams.maxByOrNull { it.bitrate ?: 0 }
                                 } else {
                                     null
                                 }

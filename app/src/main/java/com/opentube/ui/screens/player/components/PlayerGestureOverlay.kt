@@ -33,6 +33,7 @@ fun PlayerGestureOverlay(
     modifier: Modifier = Modifier,
     onSingleTap: () -> Unit,
     onDoubleTapSeek: (Int) -> Unit, // +10 or -10
+    onDrag: (Float) -> Unit = {},
     onSwipeDown: () -> Unit,
     content: @Composable () -> Unit
 ) {
@@ -44,6 +45,7 @@ fun PlayerGestureOverlay(
         GestureHandler(
             onSingleTap = onSingleTap,
             onDoubleTapSeek = onDoubleTapSeek,
+            onDrag = onDrag,
             onSwipeDown = onSwipeDown
         )
     }
@@ -53,6 +55,7 @@ fun PlayerGestureOverlay(
 private fun GestureHandler(
     onSingleTap: () -> Unit,
     onDoubleTapSeek: (Int) -> Unit,
+    onDrag: (Float) -> Unit,
     onSwipeDown: () -> Unit
 ) {
     var accumulatedDragY by remember { mutableFloatStateOf(0f) }
@@ -111,14 +114,18 @@ private fun GestureHandler(
                     onVerticalDrag = { change, dragAmount ->
                         // dragAmount > 0 is down
                         accumulatedDragY += dragAmount
+                        if (accumulatedDragY < 0f) accumulatedDragY = 0f
                         
-                        // Threshold for swipe down (e.g., 200px)
-                        if (accumulatedDragY > 200f) {
-                            onSwipeDown()
-                            accumulatedDragY = 0f // Reset to prevent multiple calls
-                        }
+                        onDrag(accumulatedDragY)
                     },
                     onDragEnd = {
+                        // Threshold for swipe down (e.g., 300px)
+                        if (accumulatedDragY > 300f) {
+                            onSwipeDown()
+                        } else {
+                            // Cancel animation (snap back)
+                            onDrag(0f)
+                        }
                         accumulatedDragY = 0f
                     }
                 )

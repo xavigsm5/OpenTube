@@ -21,6 +21,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
@@ -63,6 +65,7 @@ fun VideoPlayerScreen(
     onNavigateBack: () -> Unit,
     onChannelClick: ((String) -> Unit)? = null,
     onVideoClick: ((String) -> Unit)? = null,
+    onDrag: (Float) -> Unit = {},
     onMinimize: ((title: String, channel: String, thumbnailUrl: String, isPlaying: Boolean, player: androidx.media3.exoplayer.ExoPlayer?) -> Unit)? = null,
     existingPlayer: androidx.media3.exoplayer.ExoPlayer? = null,
     viewModel: VideoPlayerViewModel = hiltViewModel()
@@ -70,6 +73,15 @@ fun VideoPlayerScreen(
     android.util.Log.d("VideoPlayerScreen", "=== VideoPlayerScreen COMPOSABLE STARTED for videoId: $videoId ===")
     
     val uiState by viewModel.uiState.collectAsState()
+    
+    LaunchedEffect(videoId) {
+        viewModel.setVideoId(videoId)
+    }
+    
+    BackHandler {
+        onNavigateBack()
+    }
+    
     val showSettingsSheet by viewModel.showSettingsSheet.collectAsState()
     val context = LocalContext.current
     
@@ -85,6 +97,9 @@ fun VideoPlayerScreen(
     var isMinimizing by remember { mutableStateOf(false) }
     var showMoreVideos by remember { mutableStateOf(false) }
     var showComments by remember { mutableStateOf(false) }
+    
+    // Flag to skip the first LaunchedEffect(selectedQuality) fire - DisposableEffect handles initial load
+    var skipInitialQualityChange by remember { mutableStateOf(true) }
     
     // Manage fullscreen
     val activity = context as? Activity
@@ -134,7 +149,7 @@ fun VideoPlayerScreen(
                 isPlaying = player.isPlaying
                 viewModel.updatePlaybackPosition(currentPosition)
             }
-            delay(100)
+            delay(1000)
         }
     }
     
@@ -186,11 +201,37 @@ fun VideoPlayerScreen(
     
     when (val state = uiState) {
         is VideoPlayerUiState.Loading -> {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+            Column(
+                modifier = Modifier.fillMaxSize()
             ) {
-                CircularProgressIndicator()
+                // 16:9 Black Video Area Placeholder (No spinner to give instant-load illusion)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .background(Color.Black)
+                ) {
+                    // Removed Generic CircularProgressIndicator to make it load visually instantly
+                }
+                
+                // Title Skeleton
+                Spacer(modifier = Modifier.height(16.dp))
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth(0.7f)
+                        .height(24.dp)
+                        .background(Color.DarkGray, shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth(0.4f)
+                        .height(16.dp)
+                        .background(Color.DarkGray, shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                )
             }
         }
         
@@ -242,7 +283,9 @@ fun VideoPlayerScreen(
                     // Verificar si ya estamos reproduciendo este video (Continuidad)
                     // Comprobamos si hay un MediaItem y si el ID coincide (o si simplemente ya está reproduciendo algo y asumimos que es correcto si venimos del miniplayer)
                     val isSameVideo = viewModel.isCurrentVideo(videoId)
-                    val isFromMiniPlayer = existingPlayer != null || isSameVideo
+                    // Only reuse existing content if it's truly the SAME video
+                    // Don't skip for different videos even if existingPlayer != null
+                    val isFromMiniPlayer = isSameVideo && (existingPlayer != null || player.mediaItemCount > 0)
                     
                     if (!isFromMiniPlayer) {
                         android.util.Log.d("VideoPlayerScreen", "Preparando nuevo stream")
@@ -298,7 +341,82 @@ fun VideoPlayerScreen(
                                 }
                             }
                             
-                            // OPCIÓN 1: Progressive stream (video+audio juntos) - MÁS CONFIABLE (para videos normales)
+                            // OPCIÓN 1: Stream seleccionado (DASH o Progressive específico)
+                            if (!streamLoaded && playerSettings.selectedQuality != null) {
+                                android.util.Log.d("VideoPlayerScreen", "Trying Selected Quality (DASH/Prog)")
+                                try {
+                                    val videoStream = playerSettings.selectedQuality
+                                    val audioStream = playerSettings.selectedAudioTrack
+                                    
+                                    if (videoStream != null && videoStream.url.isNotEmpty()) {
+                                        if (videoStream.videoOnly && audioStream != null && audioStream.url.isNotEmpty()) {
+                                            // Video + Audio separado (DASH) - Use proper DASH manifest
+                                            android.util.Log.d("VideoPlayerScreen", "Creating DASH manifest for video ${videoStream.height}p + audio ${audioStream.bitrate}")
+                                            
+                                            try {
+                                                // Create a proper DASH manifest using DashHelper
+                                                // This includes init/index byte ranges for instant seeking
+                                                val dashUri = DashHelper.createDashSource(
+                                                    videoStreams = listOf(videoStream),
+                                                    audioStreams = listOf(audioStream),
+                                                    duration = videoDetails.duration
+                                                )
+                                                
+                                                // Use DefaultDataSource.Factory which handles data: URIs (for manifest)
+                                                // AND http: URIs (for actual media segments)
+                                                val httpFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                                                    .setAllowCrossProtocolRedirects(true)
+                                                    .setConnectTimeoutMs(10000)
+                                                    .setReadTimeoutMs(10000)
+                                                val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(context, httpFactory)
+                                                
+                                                val dashSource = androidx.media3.exoplayer.dash.DashMediaSource.Factory(dataSourceFactory)
+                                                    .createMediaSource(androidx.media3.common.MediaItem.fromUri(dashUri))
+                                                
+                                                player.setMediaSource(dashSource)
+                                                player.prepare()
+                                                player.playWhenReady = true
+                                                streamLoaded = true
+                                                android.util.Log.d("VideoPlayerScreen", "✅ DASH manifest loaded (proper byte-range seeking)")
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("VideoPlayerScreen", "❌ DASH manifest failed, falling back to Progressive merge", e)
+                                                // Fallback: try ProgressiveMediaSource merge
+                                                try {
+                                                    val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                                                    val videoSource = androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
+                                                        .createMediaSource(androidx.media3.common.MediaItem.fromUri(videoStream.url))
+                                                    val audioSource = androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
+                                                        .createMediaSource(androidx.media3.common.MediaItem.fromUri(audioStream.url))
+                                                    val mergedSource = androidx.media3.exoplayer.source.MergingMediaSource(videoSource, audioSource)
+                                                    player.setMediaSource(mergedSource)
+                                                    player.prepare()
+                                                    player.playWhenReady = true
+                                                    streamLoaded = true
+                                                    android.util.Log.d("VideoPlayerScreen", "✅ Progressive merge fallback loaded")
+                                                } catch (e2: Exception) {
+                                                    android.util.Log.e("VideoPlayerScreen", "❌ Progressive merge fallback also failed", e2)
+                                                }
+                                            }
+                                        } else if (!videoStream.videoOnly) {
+                                            // Stream con audio integrado
+                                            android.util.Log.d("VideoPlayerScreen", "Using progressive stream ${videoStream.height}p")
+                                            player.setMediaItem(androidx.media3.common.MediaItem.fromUri(videoStream.url))
+                                            player.prepare()
+                                            player.playWhenReady = true
+                                            streamLoaded = true
+                                            android.util.Log.d("VideoPlayerScreen", "✅ Progressive loaded")
+                                        } else {
+                                            // Video sin audio y no hay audio stream
+                                            android.util.Log.w("VideoPlayerScreen", "Video is videoOnly but no audio stream available")
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("VideoPlayerScreen", "❌ Selected stream failed", e)
+                                    e.printStackTrace()
+                                }
+                            }
+                            
+                            // OPCIÓN 2: Progressive stream (video+audio juntos) - MÁS CONFIABLE (para videos normales) - FALLBACK
                             if (!streamLoaded && videoDetails.videoStreams.isNotEmpty()) {
                                 android.util.Log.d("VideoPlayerScreen", "Trying Progressive stream first")
                                 try {
@@ -321,7 +439,7 @@ fun VideoPlayerScreen(
                                 }
                             }
                             
-                            // OPCIÓN 2: HLS (calidad adaptativa) - Si Progressive falla
+                            // OPCIÓN 3: HLS (calidad adaptativa) - Si Progressive falla
                             if (!videoDetails.hlsUrl.isNullOrEmpty() && !streamLoaded) {
                                 android.util.Log.d("VideoPlayerScreen", "Trying HLS stream")
                                 try {
@@ -333,52 +451,6 @@ fun VideoPlayerScreen(
                                     android.util.Log.d("VideoPlayerScreen", "✅ HLS loaded")
                                 } catch (e: Exception) {
                                     android.util.Log.e("VideoPlayerScreen", "❌ HLS failed", e)
-                                }
-                            }
-                            
-                            // OPCIÓN 3: DASH (video+audio separado, mejor calidad fija)
-                            if (!streamLoaded && playerSettings.selectedQuality != null) {
-                                android.util.Log.d("VideoPlayerScreen", "Trying DASH streams")
-                                try {
-                                    val videoStream = playerSettings.selectedQuality
-                                    val audioStream = playerSettings.selectedAudioTrack
-                                    
-                                    if (videoStream != null && videoStream.url.isNotEmpty()) {
-                                        if (videoStream.videoOnly && audioStream != null && audioStream.url.isNotEmpty()) {
-                                            // Video + Audio separado (DASH)
-                                            android.util.Log.d("VideoPlayerScreen", "Merging video ${videoStream.height}p + audio ${audioStream.bitrate}")
-                                            
-                                            val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
-                                            
-                                            val videoSource = androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
-                                                .createMediaSource(androidx.media3.common.MediaItem.fromUri(videoStream.url))
-                                            
-                                            val audioSource = androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
-                                                .createMediaSource(androidx.media3.common.MediaItem.fromUri(audioStream.url))
-                                            
-                                            val mergedSource = androidx.media3.exoplayer.source.MergingMediaSource(videoSource, audioSource)
-                                            
-                                            player.setMediaSource(mergedSource)
-                                            player.prepare()
-                                            player.playWhenReady = true
-                                            streamLoaded = true
-                                            android.util.Log.d("VideoPlayerScreen", "✅ DASH loaded")
-                                        } else if (!videoStream.videoOnly) {
-                                            // Stream con audio integrado
-                                            android.util.Log.d("VideoPlayerScreen", "Using progressive stream ${videoStream.height}p")
-                                            player.setMediaItem(androidx.media3.common.MediaItem.fromUri(videoStream.url))
-                                            player.prepare()
-                                            player.playWhenReady = true
-                                            streamLoaded = true
-                                            android.util.Log.d("VideoPlayerScreen", "✅ Progressive loaded")
-                                        } else {
-                                            // Video sin audio y no hay audio stream
-                                            android.util.Log.w("VideoPlayerScreen", "Video is videoOnly but no audio stream available")
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("VideoPlayerScreen", "❌ DASH failed", e)
-                                    e.printStackTrace()
                                 }
                             }
                             
@@ -468,7 +540,22 @@ fun VideoPlayerScreen(
             }
             
             // Change quality/audio when changed - exactamente como LibreTube
+            // Skip on initial composition (DisposableEffect already loaded the stream)
+            // Skip for live streams (they use HLS, not DASH quality switching)
             LaunchedEffect(playerSettings.selectedQuality, playerSettings.selectedAudioTrack) {
+                // Guard: skip the first fire (DisposableEffect already loaded the stream)
+                if (skipInitialQualityChange) {
+                    skipInitialQualityChange = false
+                    android.util.Log.d("VideoPlayerScreen", "Skipping initial quality change - DisposableEffect handles first load")
+                    return@LaunchedEffect
+                }
+                
+                // Guard: live streams use HLS, don't replace with DASH
+                if (videoDetails.liveNow) {
+                    android.util.Log.d("VideoPlayerScreen", "Skipping quality change - live stream uses HLS")
+                    return@LaunchedEffect
+                }
+                
                 exoPlayer?.let { player ->
                     if (videoDetails.videoStreams.isEmpty()) return@let
                     
@@ -478,29 +565,45 @@ fun VideoPlayerScreen(
                     try {
                         // Usar la calidad seleccionada por el usuario
                         val selectedStream = playerSettings.selectedQuality
+                        val audioStream = playerSettings.selectedAudioTrack
                         
                         if (selectedStream != null && selectedStream.url.isNotEmpty()) {
                             android.util.Log.d("VideoPlayerScreen", "Changing to quality: ${selectedStream.quality} (${selectedStream.height}p)")
                             
                             if (selectedStream.videoOnly) {
-                                // Video DASH - necesita audio separado
-                                val selectedAudio = playerSettings.selectedAudioTrack 
-                                    ?: videoDetails.audioStreams.maxByOrNull { it.bitrate ?: 0 }
-                                
-                                if (selectedAudio != null) {
-                                    val dashUri = DashHelper.createDashSource(
-                                        videoStreams = listOf(selectedStream),
-                                        audioStreams = listOf(selectedAudio),
-                                        duration = videoDetails.duration
-                                    )
-                                    
-                                    val mediaItem = androidx.media3.common.MediaItem.Builder()
-                                        .setUri(dashUri)
-                                        .setMimeType(androidx.media3.common.MimeTypes.APPLICATION_MPD)
-                                        .build()
-                                    
-                                    player.setMediaItem(mediaItem)
-                                    player.prepare()
+                                if (audioStream != null && audioStream.url.isNotEmpty()) {
+                                    // Use DASH manifest for videoOnly + audio
+                                    try {
+                                        val dashUri = DashHelper.createDashSource(
+                                            videoStreams = listOf(selectedStream),
+                                            audioStreams = listOf(audioStream),
+                                            duration = videoDetails.duration
+                                        )
+                                        val httpFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                                            .setAllowCrossProtocolRedirects(true)
+                                        val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(context, httpFactory)
+                                        val dashSource = androidx.media3.exoplayer.dash.DashMediaSource.Factory(dataSourceFactory)
+                                            .createMediaSource(androidx.media3.common.MediaItem.fromUri(dashUri))
+                                        player.setMediaSource(dashSource)
+                                        player.seekTo(savedPosition)
+                                        player.prepare()
+                                        player.playWhenReady = wasPlaying
+                                        android.util.Log.d("VideoPlayerScreen", "✅ Changed to DASH ${selectedStream.height}p + audio")
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("VideoPlayerScreen", "❌ DASH quality change failed, trying Progressive merge", e)
+                                        val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                                        val videoSource = androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
+                                            .createMediaSource(androidx.media3.common.MediaItem.fromUri(selectedStream.url))
+                                        val audioSourceItem = androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory)
+                                            .createMediaSource(androidx.media3.common.MediaItem.fromUri(audioStream.url))
+                                        val mergedSource = androidx.media3.exoplayer.source.MergingMediaSource(videoSource, audioSourceItem)
+                                        player.setMediaSource(mergedSource)
+                                        player.seekTo(savedPosition)
+                                        player.prepare()
+                                        player.playWhenReady = wasPlaying
+                                    }
+                                } else {
+                                    // Mantenemos esto como emergencia aunque generalmente el UI siempre requiere una pista
                                     player.seekTo(savedPosition)
                                     player.playWhenReady = wasPlaying
                                 }
@@ -511,8 +614,8 @@ fun VideoPlayerScreen(
                                     .build()
                                 
                                 player.setMediaItem(mediaItem)
-                                player.prepare()
                                 player.seekTo(savedPosition)
+                                player.prepare()
                                 player.playWhenReady = wasPlaying
                             }
                         }
@@ -540,12 +643,11 @@ fun VideoPlayerScreen(
                         }
                     )
             ) {
-                // Video player
+                // Parent Box for video area (and landscape comments)
                 Box(
                     modifier = Modifier
                         .then(
                             if (isFullscreen) {
-                                // En fullscreen, usar toda la pantalla disponible
                                 Modifier.fillMaxSize()
                             } else {
                                 // En portrait, mantener aspect ratio 16:9
@@ -554,60 +656,70 @@ fun VideoPlayerScreen(
                                     .aspectRatio(16f / 9f)
                             }
                         )
-                        .background(androidx.compose.ui.graphics.Color.Black)
+                        .background(Color.Black)
                 ) {
                     
-                    // Ambient Mode (Ambilight effect)
-                    // We show this behind the player, blurred
-                    if (state is VideoPlayerUiState.Success) {
-                        AsyncImage(
-                            model = state.videoDetails.thumbnailUrl,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .alpha(0.6f) // Adjust alpha for subtlety
-                                .blur(
-                                    radiusX = 100.dp, 
-                                    radiusY = 100.dp, 
-                                    edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded
-                                )
-                        )
-                    }
-
-                    // Obtener el resize mode del estado
-                    val resizeMode = (uiState as? VideoPlayerUiState.Success)?.playerSettings?.resizeMode ?: 0
-
-                    PlayerGestureOverlay(
-                        onSingleTap = { showControls = !showControls },
-                        onDoubleTapSeek = { seconds ->
-                            exoPlayer?.seekTo((exoPlayer?.currentPosition ?: 0) + seconds * 1000)
-                        },
-                        onSwipeDown = {
-                            if (isFullscreen) {
-                                viewModel.toggleFullscreen()
-                            } else {
-                                // Smart cast for accessing videoDetails
-                                val currentState = uiState
-                                if (currentState is VideoPlayerUiState.Success) {
-                                    isMinimizing = true
-                                    onMinimize?.invoke(
-                                        currentState.videoDetails.title,
-                                        currentState.videoDetails.uploader,
-                                        currentState.videoDetails.thumbnailUrl,
-                                        isPlaying,
-                                        exoPlayer
+                    // Video Content Wrapper
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .then(
+                                if (isFullscreen && showComments && !showMoreVideos) {
+                                    Modifier.fillMaxWidth(0.6f)
+                                } else {
+                                    Modifier.fillMaxWidth()
+                                }
+                            )
+                            .align(Alignment.CenterStart)
+                    ) {
+                        // Ambient Mode (Ambilight effect)
+                        if (state is VideoPlayerUiState.Success) {
+                            AsyncImage(
+                                model = state.videoDetails.thumbnailUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .alpha(0.6f)
+                                    .blur(
+                                        radiusX = 100.dp, 
+                                        radiusY = 100.dp, 
+                                        edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded
                                     )
-                                    onNavigateBack()
+                            )
+                        }
+
+                        val resizeMode = (uiState as? VideoPlayerUiState.Success)?.playerSettings?.resizeMode ?: 0
+
+                        PlayerGestureOverlay(
+                            onSingleTap = { showControls = !showControls },
+                            onDoubleTapSeek = { seconds ->
+                                exoPlayer?.seekTo((exoPlayer?.currentPosition ?: 0) + seconds * 1000)
+                            },
+                            onDrag = onDrag,
+                            onSwipeDown = {
+                                if (isFullscreen) {
+                                    viewModel.toggleFullscreen()
+                                } else {
+                                    val currentState = uiState
+                                    if (currentState is VideoPlayerUiState.Success) {
+                                        isMinimizing = true
+                                        onMinimize?.invoke(
+                                            currentState.videoDetails.title,
+                                            currentState.videoDetails.uploader,
+                                            currentState.videoDetails.thumbnailUrl,
+                                            isPlaying,
+                                            exoPlayer
+                                        )
+                                        onNavigateBack()
+                                    }
                                 }
                             }
-                        }
-                    ) {
-                    // ExoPlayer view
-                    var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
-                    
-                    // Forzar resize mode continuamente para prevenir cambios automáticos
-                    LaunchedEffect(exoPlayer, isFullscreen, resizeMode) {
+                        ) {
+                        
+                        var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+                        
+                        LaunchedEffect(exoPlayer, isFullscreen, resizeMode) {
                         val actualResizeMode = when(resizeMode) {
                             0 -> AspectRatioFrameLayout.RESIZE_MODE_FIT
                             1 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
@@ -685,8 +797,10 @@ fun VideoPlayerScreen(
                             }
                             
                             playerView.player = exoPlayer
+                            
                             // CRÍTICO: Aplicar resize mode desde el estado
                             playerView.resizeMode = mode
+                            
                             // Asegurar que no haya escala aplicada
                             playerView.scaleX = 1f
                             playerView.scaleY = 1f
@@ -698,10 +812,9 @@ fun VideoPlayerScreen(
                         },
                         modifier = Modifier
                             .fillMaxSize()
-                            .fillMaxSize()
                     )
-                    }
-
+                    } // close PlayerGestureOverlay!
+                    
                     // Controles personalizados
                     PlayerControls(
                             isPlaying = isPlaying,
@@ -785,7 +898,8 @@ fun VideoPlayerScreen(
                             onCommentsClick = {
                                 showComments = !showComments
                                 if (showComments) showMoreVideos = false
-                            }
+                            },
+                            isLive = videoDetails.liveNow
                         )
 
                     // Más Videos Overlay (Horizontal)
@@ -842,12 +956,13 @@ fun VideoPlayerScreen(
                                                 }
                                             )
                                         }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
+                                    } // items
+                                } // LazyRow
+                            } // Column
+                        } // Box
+                    } // AnimatedVisibility(showMoreVideos)
+                    } // Video Content Box
+                    
                     // Panel Lateral de Comentarios (Horizontal)
                     androidx.compose.animation.AnimatedVisibility(
                         visible = isFullscreen && showComments && !showMoreVideos,
@@ -865,39 +980,36 @@ fun VideoPlayerScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = "Comentarios",
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Text(text = "Comentarios", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                                     IconButton(onClick = { showComments = false }) {
                                         Icon(imageVector = Icons.Default.Close, contentDescription = "Cerrar")
                                     }
                                 }
                                 Divider()
-                                Box(modifier = Modifier.weight(1f)) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .verticalScroll(rememberScrollState())
+                                ) {
                                     CommentsSection(
                                         comments = state.comments,
                                         isLoading = state.isLoadingComments,
                                         onLoadMore = { viewModel.loadMoreComments() },
-                                        onLoadReplies = { commentId, repliesPage ->
-                                            viewModel.loadReplies(commentId, repliesPage)
-                                        },
+                                        onLoadReplies = { commentId, repliesPage -> viewModel.loadReplies(commentId, repliesPage) },
                                         replies = state.replies,
-                                        loadingReplies = state.loadingReplies
                                     )
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                if (!isFullscreen) {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .weight(1f)
-                    ) {
+                                } // Box
+                            } // Column
+                        } // Surface
+                    } // AnimatedVisibility
+                } // close Top Level Box
+
+                // Portrait view area
+                Box(modifier = Modifier.weight(1f)) {
+                    if (!isFullscreen) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
                         // Video info
                         item {
                             com.opentube.ui.screens.player.components.VideoInfoSection(
@@ -964,13 +1076,13 @@ fun VideoPlayerScreen(
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                             )
                         }
-                    }
-                }
-            }
+                    } // close LazyColumn
+                } // close Box
+            } // close if (!isFullscreen)
             
             // Settings sheet
             if (showSettingsSheet) {
-                                PlayerSettingsSheet(
+                PlayerSettingsSheet(
                     videoStreams = videoDetails.videoStreams,
                     audioStreams = videoDetails.audioStreams,
                     subtitleStreams = videoDetails.subtitleStreams,
@@ -991,4 +1103,5 @@ fun VideoPlayerScreen(
             }
         }
     }
+}
 }

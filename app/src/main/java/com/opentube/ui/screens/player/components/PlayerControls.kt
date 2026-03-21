@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
@@ -49,7 +51,8 @@ fun PlayerControls(
     onNextVideo: () -> Unit = {},
     onPreviousVideo: () -> Unit = {},
     onMoreVideosClick: () -> Unit = {},
-    onCommentsClick: () -> Unit = {}
+    onCommentsClick: () -> Unit = {},
+    isLive: Boolean = false
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -138,7 +141,10 @@ fun PlayerControls(
             Row(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .fillMaxWidth(),
+                    .then(
+                        if (isFullscreen) Modifier.fillMaxWidth(0.7f)
+                        else Modifier.fillMaxWidth()
+                    ),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -187,7 +193,10 @@ fun PlayerControls(
             // Bottom Bar
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .then(
+                        if (isFullscreen) Modifier.fillMaxWidth(0.85f)
+                        else Modifier.fillMaxWidth()
+                    )
                     .align(Alignment.BottomCenter)
                     .background(
                         brush = Brush.verticalGradient(
@@ -207,11 +216,37 @@ fun PlayerControls(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "${formatDuration(currentPosition)} / ${formatDuration(duration)}",
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    if (isLive) {
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.6f),
+                            shape = CircleShape,
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(Color.Red, CircleShape)
+                                )
+                                Text(
+                                    text = "En vivo",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = "${formatDuration(currentPosition)} / ${formatDuration(duration)}",
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                     
                     IconButton(onClick = onFullscreenClick) {
                         Icon(
@@ -227,6 +262,7 @@ fun PlayerControls(
                     currentPosition = currentPosition,
                     duration = duration,
                     bufferedPosition = bufferedPosition,
+                    isLive = isLive,
                     onSeek = onSeek
                 )
 
@@ -257,14 +293,47 @@ fun PlayerControls(
                             }
                         }
                         
-                        // Más Videos Button
-                        TextButton(
-                            onClick = onMoreVideosClick,
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
+                        // Más Videos Button - stacked rectangles icon
+                        Row(
+                            modifier = Modifier
+                                .clickable(onClick = onMoreVideosClick)
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            // Stacked rectangles icon
+                            Box(
+                                modifier = Modifier.size(28.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                // Back rectangle (offset)
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = 18.dp, height = 14.dp)
+                                        .offset(x = 3.dp, y = (-3).dp)
+                                        .border(1.5.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(3.dp))
+                                )
+                                // Middle rectangle
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = 18.dp, height = 14.dp)
+                                        .offset(x = 0.dp, y = 0.dp)
+                                        .border(1.5.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(3.dp))
+                                )
+                                // Front rectangle
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = 18.dp, height = 14.dp)
+                                        .offset(x = (-3).dp, y = 3.dp)
+                                        .border(1.5.dp, Color.White, RoundedCornerShape(3.dp))
+                                        .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(3.dp))
+                                )
+                            }
                             Text(
                                 text = "Más videos",
-                                fontWeight = FontWeight.Bold
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium
                             )
                         }
                     }
@@ -279,6 +348,7 @@ fun VideoProgressBar(
     currentPosition: Long,
     duration: Long,
     bufferedPosition: Long,
+    isLive: Boolean = false,
     onSeek: (Long) -> Unit
 ) {
     MarkableProgressBar(
@@ -286,7 +356,7 @@ fun VideoProgressBar(
         duration = duration,
         bufferedPosition = bufferedPosition,
         onSeek = onSeek,
-        segments = emptyList(), // Placeholder for future Chapter/SponsorBlock data
+        isLive = isLive,
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 12.dp)

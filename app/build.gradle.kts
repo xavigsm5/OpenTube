@@ -24,8 +24,8 @@ android {
         applicationId = "com.opentube"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.2"
+        versionCode = 3
+        versionName = "1.1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -140,6 +140,9 @@ dependencies {
 
     // Coil Image Loading
     implementation("io.coil-kt:coil-compose:2.5.0")
+    
+    // Haze (Blur effect for Compose)
+    implementation("dev.chrisbanes.haze:haze:0.4.1")
 
     // ExoPlayer
     val exoplayerVersion = "1.2.0"

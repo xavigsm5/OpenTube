@@ -258,7 +258,50 @@ class VideoRepository @Inject constructor(
             
             emit(Result.success(details))
         } catch (e: Exception) {
-            emit(Result.failure(e))
+            val errorMsg = e.message ?: e.toString()
+            if (errorMsg.contains("age-restrict", ignoreCase = true) || errorMsg.contains("anonymously", ignoreCase = true) || errorMsg.contains("restringido", ignoreCase = true)) {
+                android.util.Log.d("VideoRepository", "Age restricted video detected! Using Piped API fallback...")
+                try {
+                    // Try public instances known to bypass age restrictions
+                    val fallbackInstances = listOf(
+                        "https://pipedapi.kavin.rocks/streams/$videoId",
+                        "https://pipedapi.adminforge.de/streams/$videoId",
+                        "https://pipedapi.smnz.de/streams/$videoId",
+                        "https://pipedapi.lunar.icu/streams/$videoId",
+                        "https://api.piped.projectsegfau.lt/streams/$videoId"
+                    )
+                    
+                    var fallbackResult: VideoDetails? = null
+                    var lastError: Exception? = null
+                    
+                    for (fallbackUrl in fallbackInstances) {
+                        try {
+                            android.util.Log.d("VideoRepository", "Trying fallback URL: $fallbackUrl")
+                            val rawResponse = pipedApi.getVideoDetailsFallback(fallbackUrl)
+                            val jsonString = rawResponse.string()
+                            val gson = com.google.gson.Gson()
+                            fallbackResult = gson.fromJson(jsonString, VideoDetails::class.java)
+                            break
+                        } catch (fallbackEx: Exception) {
+                            lastError = fallbackEx
+                            android.util.Log.d("VideoRepository", "Fallback URL $fallbackUrl failed, trying next...")
+                        }
+                    }
+                    
+                    if (fallbackResult != null) {
+                        // We got it from Piped API!
+                        val detailsWithId = fallbackResult.copy(videoId = videoId)
+                        cachedVideoDetails = detailsWithId
+                        emit(Result.success(detailsWithId))
+                    } else {
+                        emit(Result.failure(lastError ?: e))
+                    }
+                } catch (fallbackOuterEx: Exception) {
+                    emit(Result.failure(fallbackOuterEx))
+                }
+            } else {
+                emit(Result.failure(e))
+            }
         }
     }
     

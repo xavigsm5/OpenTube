@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="logo.png" alt="OpenTube Logo" width="200" height="200"/>
+<img src="Logo actualizado.png" alt="OpenTube Logo" width="200" height="200"/>
 
 ### La forma más libre de ver YouTube en Android
 
@@ -88,14 +88,14 @@ OpenTube es tu cliente de YouTube **libre, privado y sin anuncios** para Android
 
 <div align="center">
 
-### 🏠 Inicio y Búsqueda
-<img src="screenshots/Busqueda.jpg" width="250"/> <img src="screenshots/Biblioteca.jpg" width="250"/> <img src="screenshots/Suscripciones.jpg" width="250"/>
+### 🏠 Navegación y Búsqueda
+<img src="screenshots/inicio.jpeg" width="250"/> <img src="screenshots/region.jpeg" width="250"/> <img src="screenshots/busqueda.jpeg" width="250"/>
 
 ### 🎬 Reproductor de Video
-<img src="screenshots/Reproductor Video.jpg" width="250"/> <img src="screenshots/Reproductor Video Pantalla Completa.jpg" width="250"/> <img src="screenshots/Calidad de Video.jpg" width="250"/>
+<img src="screenshots/detalle video.jpeg" width="250"/> <img src="screenshots/reproductor pantalla completa.jpeg" width="250"/> <img src="screenshots/comentarios pantalla completa.jpeg" width="250"/>
 
-### 📺 Canales y Configuración
-<img src="screenshots/Visualización Canal.jpg" width="250"/> <img src="screenshots/Ajustes.jpg" width="250"/> <img src="screenshots/Temas ajustes.jpg" width="250"/>
+### 📺 Extras
+<img src="screenshots/mas videos pantalla completa.jpeg" width="250"/>
 
 </div>
 

@@ -165,7 +165,7 @@ fun SearchScreen(
                 searchQuery.isEmpty() && searchHistory.isNotEmpty() -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         item {
@@ -231,7 +231,7 @@ fun SearchScreen(
                     if (pagingItems.itemCount > 0 || pagingItems.loadState.refresh is LoadState.Loading) {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
+                            contentPadding = PaddingValues(vertical = 16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             items(pagingItems.itemCount) { index ->

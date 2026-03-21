@@ -49,7 +49,8 @@ fun SettingsScreen(
                     containerColor = Color.Transparent
                 )
             )
-        }
+        },
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp)
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -151,6 +152,7 @@ fun SettingsScreen(
                         ThemeMode.RED -> "Rojo"
                         ThemeMode.PINK -> "Rosa"
                         ThemeMode.LIGHT_GREEN -> "Verde Claro"
+                        ThemeMode.OLED_BLACK -> "Negro OLED"
                     },
                     onClick = { showThemeDialog = true }
                 )
@@ -565,8 +567,8 @@ private fun ThemeSelectionDialog(
         onDismissRequest = onDismiss,
         title = { Text("Seleccionar tema") },
         text = {
-            Column {
-                ThemeMode.values().forEach { theme ->
+            LazyColumn {
+                items(ThemeMode.values().toList()) { theme ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -590,6 +592,7 @@ private fun ThemeSelectionDialog(
                                 ThemeMode.RED -> "Rojo"
                                 ThemeMode.PINK -> "Rosa"
                                 ThemeMode.LIGHT_GREEN -> "Verde Claro"
+                                ThemeMode.OLED_BLACK -> "Negro OLED"
                             }
                         )
                     }

@@ -35,6 +35,14 @@ interface PipedApiService {
     ): VideoDetails
     
     /**
+     * Fallback para saltar restricción de edad usando URLs directas a instancias permisivas
+     */
+    @GET
+    suspend fun getVideoDetailsFallback(
+        @retrofit2.http.Url url: String
+    ): okhttp3.ResponseBody
+    
+    /**
      * Get SponsorBlock segments for a video
      * @param videoId YouTube video ID
      * @param category JSON array of categories to fetch

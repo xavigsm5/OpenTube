@@ -42,7 +42,7 @@ fun VideoCard(
                 .background(MaterialTheme.colorScheme.surfaceVariant) // Placeholder color
         ) {
             AsyncImage(
-                model = video.thumbnail,
+                model = video.thumbnail.replace("hqdefault.jpg", "maxresdefault.jpg").replace("mqdefault.jpg", "maxresdefault.jpg"),
                 contentDescription = video.title,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
@@ -177,7 +177,7 @@ fun VideoListItem(
                 .aspectRatio(16f / 9f)
         ) {
             AsyncImage(
-                model = video.thumbnail,
+                model = video.thumbnail.replace("hqdefault.jpg", "maxresdefault.jpg").replace("mqdefault.jpg", "maxresdefault.jpg"),
                 contentDescription = video.title,
                 modifier = Modifier
                     .fillMaxSize()

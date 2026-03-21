@@ -208,6 +208,27 @@ private val DarkGreenSpotifyColorScheme = darkColorScheme(
     onError = Color(0xFF000000)
 )
 
+// OLED Black Theme (Premium Black)
+private val OledBlackColorScheme = darkColorScheme(
+    primary = Color(0xFFE0E0E0), // White/Gray for accent
+    onPrimary = Color(0xFF000000),
+    primaryContainer = Color(0xFF333333),
+    onPrimaryContainer = Color(0xFFFFFFFF),
+    secondary = Color(0xFFAAAAAA),
+    onSecondary = Color(0xFF000000),
+    secondaryContainer = Color(0xFF222222),
+    onSecondaryContainer = Color(0xFFFFFFFF),
+    background = Color(0xFF000000), // TRUE BLACK
+    onBackground = Color(0xFFFFFFFF),
+    surface = Color(0xFF000000), // TRUE BLACK
+    onSurface = Color(0xFFFFFFFF),
+    surfaceVariant = Color(0xFF111111), // Almost black for cards
+    onSurfaceVariant = Color(0xFFCCCCCC),
+    outline = Color(0xFF333333),
+    error = Color(0xFFCF6679),
+    onError = Color(0xFF000000)
+)
+
 @Composable
 fun OpenTubeTheme(
     themeMode: com.opentube.ui.screens.settings.ThemeMode = com.opentube.ui.screens.settings.ThemeMode.DARK,
@@ -234,6 +255,7 @@ fun OpenTubeTheme(
             com.opentube.ui.screens.settings.ThemeMode.RED -> RedColorScheme
             com.opentube.ui.screens.settings.ThemeMode.PINK -> PinkColorScheme
             com.opentube.ui.screens.settings.ThemeMode.LIGHT_GREEN -> LightGreenColorScheme
+            com.opentube.ui.screens.settings.ThemeMode.OLED_BLACK -> OledBlackColorScheme
         }
     }
     

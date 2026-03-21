@@ -52,7 +52,8 @@ fun SubscriptionsScreen(
                     containerColor = Color.Transparent
                 )
             )
-        }
+        },
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp)
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -115,7 +116,7 @@ fun SubscriptionsScreen(
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(

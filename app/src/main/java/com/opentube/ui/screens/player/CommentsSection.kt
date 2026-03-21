@@ -130,13 +130,15 @@ fun CommentsSection(
                     }
                     
                     if (comments.size > 5) {
-                        FilledTonalButton(
-                            onClick = onLoadMore,
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 4.dp)
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("Ver más comentarios (${comments.size - 5})")
+                            FilledTonalButton(onClick = onLoadMore) {
+                                Text("Ver más comentarios (${comments.size})")
+                            }
                         }
                     }
                 }

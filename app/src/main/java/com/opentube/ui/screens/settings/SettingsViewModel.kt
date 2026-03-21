@@ -48,7 +48,8 @@ enum class ThemeMode {
     SKY_BLUE,
     RED,
     PINK,
-    LIGHT_GREEN
+    LIGHT_GREEN,
+    OLED_BLACK
 }
 
 @HiltViewModel

@@ -60,7 +60,8 @@ fun InstanceSelectionScreen(
                     }
                 }
             )
-        }
+        },
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp)
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             LazyColumn(

@@ -53,7 +53,8 @@ fun ChannelScreen(
                     bottom = 0.dp
                 )
             )
-        }
+        },
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp)
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -152,7 +153,7 @@ fun ChannelScreen(
                                         VideoCard(
                                             video = video,
                                             onClick = { onVideoClick(video.videoId) },
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                            modifier = Modifier.padding(vertical = 8.dp)
                                         )
                                     }
                                 }

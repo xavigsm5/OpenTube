@@ -46,7 +46,8 @@ fun AlbumScreen(
                 )
             )
         },
-        containerColor = Color.Black
+        containerColor = Color.Black,
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp)
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -62,7 +63,7 @@ fun AlbumScreen(
                 }
                 is AlbumUiState.Success -> {
                     LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(state.videos) { video ->

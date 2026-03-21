@@ -16,11 +16,11 @@ class MiniPlayerViewModel @Inject constructor(
     private val _miniPlayerState = MutableStateFlow(MiniPlayerState())
     val miniPlayerState: StateFlow<MiniPlayerState> = _miniPlayerState.asStateFlow()
     
-    fun showMiniPlayer(
+    fun showPlayer(
         videoId: String,
-        title: String,
-        channelName: String,
-        thumbnailUrl: String,
+        title: String = "",
+        channelName: String = "",
+        thumbnailUrl: String = "",
         isPlaying: Boolean = true,
         player: ExoPlayer? = null
     ) {
@@ -31,8 +31,37 @@ class MiniPlayerViewModel @Inject constructor(
             thumbnailUrl = thumbnailUrl,
             isPlaying = isPlaying,
             isVisible = true,
+            isExpanded = true,
+            player = playerManager.player ?: player
+        )
+    }
+
+    fun showMiniPlayer(
+        videoId: String,
+        title: String,
+        channelName: String,
+        thumbnailUrl: String,
+        isPlaying: Boolean = true,
+        player: ExoPlayer? = null,
+        isExpanded: Boolean = false
+    ) {
+        _miniPlayerState.value = MiniPlayerState(
+            videoId = videoId,
+            title = title,
+            channelName = channelName,
+            thumbnailUrl = thumbnailUrl,
+            isPlaying = isPlaying,
+            isVisible = true,
+            isExpanded = isExpanded,
             player = playerManager.player // Use shared player
         )
+    }
+    
+    fun expandPlayer() {
+        val currentState = _miniPlayerState.value
+        if (currentState.videoId.isNotEmpty()) {
+            _miniPlayerState.value = currentState.copy(isExpanded = true, isVisible = true)
+        }
     }
     
     // Solo oculta visualmente el mini player (cuando se expande a pantalla completa)
@@ -48,6 +77,7 @@ class MiniPlayerViewModel @Inject constructor(
         
         _miniPlayerState.value = currentState.copy(
             isVisible = false,
+            isExpanded = false,
             player = null
         )
     }

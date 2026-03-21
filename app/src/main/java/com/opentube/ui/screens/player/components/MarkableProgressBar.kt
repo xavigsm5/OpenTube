@@ -26,8 +26,8 @@ fun MarkableProgressBar(
     currentPosition: Long,
     duration: Long,
     bufferedPosition: Long,
-    segments: List<TimeBarSegment> = emptyList(), // For SponsorBlock, Chapters
     onSeek: (Long) -> Unit,
+    isLive: Boolean = false,
     onSeekStart: () -> Unit = {},
     modifier: Modifier = Modifier,
     barHeight: Dp = 4.dp,
@@ -43,38 +43,45 @@ fun MarkableProgressBar(
     val displayPosition = if (isDragging) dragPosition else currentPosition
     val safeDuration = duration.coerceAtLeast(1)
 
+    val safeOnSeek = if (isLive) { _ -> } else onSeek
+    val safeOnSeekStart = if (isLive) { {} } else onSeekStart
+
     Canvas(
         modifier = modifier
             .fillMaxWidth()
             .height(48.dp) // Touch target size
-            .pointerInput(Unit) {
-                detectTapGestures { offset ->
-                    val progress = (offset.x / size.width).coerceIn(0f, 1f)
-                    val seekTo = (progress * safeDuration).toLong()
-                    onSeek(seekTo)
+            .pointerInput(isLive) {
+                if (!isLive) {
+                    detectTapGestures { offset ->
+                        val progress = (offset.x / size.width).coerceIn(0f, 1f)
+                        val seekTo = (progress * safeDuration.toFloat()).toLong()
+                        safeOnSeek(seekTo)
+                    }
                 }
             }
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        isDragging = true
-                        onSeekStart()
-                        val progress = (offset.x / size.width).coerceIn(0f, 1f)
-                        dragPosition = (progress * safeDuration).toLong()
-                    },
-                    onDragEnd = {
-                        isDragging = false
-                        onSeek(dragPosition)
-                    },
-                    onDragCancel = {
-                        isDragging = false
-                    },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        val progress = (change.position.x / size.width).coerceIn(0f, 1f)
-                        dragPosition = (progress * safeDuration).toLong()
-                    }
-                )
+            .pointerInput(isLive) {
+                if (!isLive) {
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            isDragging = true
+                            safeOnSeekStart?.invoke()
+                            val progress = (offset.x / size.width).coerceIn(0f, 1f)
+                            dragPosition = (progress * safeDuration.toFloat()).toLong()
+                        },
+                        onDragEnd = {
+                            isDragging = false
+                            safeOnSeek(dragPosition)
+                        },
+                        onDragCancel = {
+                            isDragging = false
+                        },
+                        onDrag = { change, _ ->
+                            change.consume()
+                            val progress = (change.position.x / size.width).coerceIn(0f, 1f)
+                            dragPosition = (progress * safeDuration.toFloat()).toLong()
+                        }
+                    )
+                }
             }
     ) {
         val width = size.width
@@ -105,36 +112,25 @@ fun MarkableProgressBar(
         // 3. Draw Segments (SponsorBlock/Chapters)
         // Draw them on top of background but below active progress? 
         // Usually segments are colored parts of the track.
-        segments.forEach { segment ->
-            val startRatio = (segment.startMs.toFloat() / safeDuration).coerceIn(0f, 1f)
-            val endRatio = (segment.endMs.toFloat() / safeDuration).coerceIn(0f, 1f)
-            
-            if (endRatio > startRatio) {
-                drawLine(
-                    color = segment.color,
-                    start = Offset(width * startRatio, centerY),
-                    end = Offset(width * endRatio, centerY),
-                    strokeWidth = barStrokeWidth,
-                    cap = StrokeCap.Butt // Precise edges for segments
-                )
-            }
-        }
+        // Segments functionality removed for now as it's not being passed.
 
         // 4. Draw Active Progress (Played)
-        val activeProgress = (displayPosition.toFloat() / safeDuration).coerceIn(0f, 1f)
+        val activeValue = if (isLive) 1f else (displayPosition.toFloat() / safeDuration).coerceIn(0f, 1f)
         drawLine(
             color = activeColor,
             start = Offset(0f, centerY),
-            end = Offset(width * activeProgress, centerY),
+            end = Offset(width * activeValue, centerY),
             strokeWidth = barStrokeWidth,
             cap = StrokeCap.Round
         )
         
-        // 5. Draw Thumb
-        drawCircle(
-            color = activeColor,
-            radius = if (isDragging) thumbRadius.toPx() * 1.5f else thumbRadius.toPx(),
-            center = Offset(width * activeProgress, centerY)
-        )
+        // 5. Draw Thumb (Hide for live streams)
+        if (!isLive) {
+            drawCircle(
+                color = activeColor,
+                radius = if (isDragging) thumbRadius.toPx() * 1.5f else thumbRadius.toPx(),
+                center = Offset(width * activeValue, centerY)
+            )
+        }
     }
 }
