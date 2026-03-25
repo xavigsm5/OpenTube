@@ -1,6 +1,7 @@
 package com.opentube.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -10,10 +11,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,6 +47,9 @@ fun MiniPlayer(
     onSeekBackward: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    // Track expanded local state: first click expands, second click opens full player
+    var isLocalExpanded by remember { mutableStateOf(false) }
+    
     AnimatedVisibility(
         visible = state.isVisible,
         enter = slideInVertically(
@@ -59,131 +61,101 @@ fun MiniPlayer(
             animationSpec = tween(durationMillis = 300)
         )
     ) {
-        // Floating PiP Player
-        Card(
+        Box(
             modifier = modifier
-                .width(240.dp) // Reduced width
-                .wrapContentHeight()
-                .padding(8.dp)
-                .clickable(onClick = onClick),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color.Black
-            ),
-            elevation = CardDefaults.cardElevation(
-                defaultElevation = 8.dp
-            )
-        ) {
-            Column {
-                // Video Area (16:9)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9f)
-                        .background(Color.Black)
-                ) {
-                    if (state.player != null) {
-                        AndroidView(
-                            factory = { context: android.content.Context ->
-                                androidx.media3.ui.PlayerView(context).apply {
-                                    useController = false
-                                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                                    player = state.player
-                                }
-                            },
-                            update = { playerView: androidx.media3.ui.PlayerView ->
-                                playerView.player = state.player
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
+                .animateContentSize(animationSpec = tween(300))
+                .then(
+                    if (isLocalExpanded) {
+                        Modifier.fillMaxWidth()
                     } else {
-                        AsyncImage(
-                            model = state.thumbnailUrl,
-                            contentDescription = "Video thumbnail",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
+                        Modifier.width(180.dp)
                     }
-                    
-                    // Close Button (Overlay on Video Top Right)
-                    // Close Button (Overlay on Video Top Right)
-                    IconButton(
-                        onClick = onClose,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(4.dp)
-                            .size(32.dp) // Slightly larger touch target
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Cerrar",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                                .background(Color.Black.copy(alpha = 0.3f), androidx.compose.foundation.shape.CircleShape) // Subtle background only on icon if needed, or none.
-                                // User said "circle behind x looks ugly". I'll remove it completely or make it very subtle shadow.
-                                // I'll use a shadow on the icon instead of a background circle.
-                        )
-                    }
-                }
-                
-                // Controls Bar (Bottom)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.Black)
-                        .padding(vertical = 4.dp), // Reduced padding
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    // Rewind 10s
-                    IconButton(
-                        onClick = onSeekBackward,
-                        modifier = Modifier.size(32.dp) // Smaller button
-                    ) {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Filled.Replay10,
-                            contentDescription = "-10s",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    
-                    // Play/Pause
-                    IconButton(
-                        onClick = onPlayPauseClick,
-                        modifier = Modifier.size(40.dp) // Smaller button
-                    ) {
-                        Icon(
-                            imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (state.isPlaying) "Pausar" else "Reproducir",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                    
-                    // Forward 10s
-                    IconButton(
-                        onClick = onSeekForward,
-                        modifier = Modifier.size(32.dp) // Smaller button
-                    ) {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Filled.Forward10,
-                            contentDescription = "+10s",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                
-                // Progress Bar (Bottom Line)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.dp)
-                        .background(Color.Red)
                 )
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.Black)
+                .clickable {
+                    if (isLocalExpanded) {
+                        // Second click: open full player
+                        onClick()
+                        isLocalExpanded = false
+                    } else {
+                        // First click: expand mini player
+                        isLocalExpanded = true
+                    }
+                }
+        ) {
+            // Video area
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+            ) {
+                if (state.player != null) {
+                    AndroidView(
+                        factory = { context: android.content.Context ->
+                            androidx.media3.ui.PlayerView(context).apply {
+                                useController = false
+                                resizeMode = if (isLocalExpanded) {
+                                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                } else {
+                                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                                }
+                                player = state.player
+                            }
+                        },
+                        update = { playerView: androidx.media3.ui.PlayerView ->
+                            playerView.player = state.player
+                            playerView.resizeMode = if (isLocalExpanded) {
+                                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            } else {
+                                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    AsyncImage(
+                        model = state.thumbnailUrl,
+                        contentDescription = "Video thumbnail",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                // Overlay buttons - Play/Pause at bottom left, Close at top right
+                IconButton(
+                    onClick = onPlayPauseClick,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(4.dp)
+                        .size(if (isLocalExpanded) 44.dp else 36.dp)
+                ) {
+                    Icon(
+                        imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (state.isPlaying) "Pausar" else "Reproducir",
+                        tint = Color.White,
+                        modifier = Modifier.size(if (isLocalExpanded) 32.dp else 24.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = {
+                        isLocalExpanded = false
+                        onClose()
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(if (isLocalExpanded) 40.dp else 32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Cerrar",
+                        tint = Color.White,
+                        modifier = Modifier.size(if (isLocalExpanded) 28.dp else 20.dp)
+                    )
+                }
             }
         }
     }
 }
-

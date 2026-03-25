@@ -118,8 +118,6 @@ fun VideoPlayerScreen(
         
         // Ocultar/mostrar barras del sistema en pantalla completa
         activity?.window?.let { window ->
-            // SIEMPRE usar false para que el contenido se dibuje detrás de las barras
-            // El padding del Scaffold en OpenTubeNavHost se encarga de dejar el espacio en portrait
             WindowCompat.setDecorFitsSystemWindows(window, false)
             
             val insetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -127,8 +125,16 @@ fun VideoPlayerScreen(
                 if (isFullscreen) {
                     hide(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.navigationBars())
                     systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    
+                    // Extend content behind ALL system bars (eliminates black bar)
+                    @Suppress("DEPRECATION")
+                    window.addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                 } else {
                     show(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.navigationBars())
+                    
+                    // Remove fullscreen flags
+                    @Suppress("DEPRECATION")
+                    window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                 }
             }
         }
@@ -642,7 +648,8 @@ fun VideoPlayerScreen(
                             // En portrait, agregar padding superior para la status bar
                             Modifier.padding(top = statusBarHeight)
                         } else {
-                            Modifier
+                            // En fullscreen, ignorar completamente todos los insets (cutout, system bars)
+                            Modifier.windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0))
                         }
                     )
             ) {
@@ -785,6 +792,9 @@ fun VideoPlayerScreen(
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                     ViewGroup.LayoutParams.MATCH_PARENT
                                 )
+                                
+                                // EVITAR que añada padding automáticamente por insets/cutouts
+                                fitsSystemWindows = false
                                 
                                 playerViewRef = this
                             }

@@ -28,6 +28,13 @@ class MainActivity : ComponentActivity() {
         // Ensure content is drawn behind system bars globally to fix padding issues
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         
+        // Permite dibujar en el área del notch/cutout de forma global
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
+        
         setContent {
             val context = LocalContext.current
             val themeMode by context.dataStore.data
