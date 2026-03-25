@@ -29,7 +29,8 @@ object DatabaseModule {
         )
             .addMigrations(
                 OpenTubeDatabase.MIGRATION_1_2,
-                OpenTubeDatabase.MIGRATION_2_3
+                OpenTubeDatabase.MIGRATION_2_3,
+                OpenTubeDatabase.MIGRATION_3_4
             )
             .fallbackToDestructiveMigration()
             .build()

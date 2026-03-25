@@ -148,7 +148,8 @@ class ShortsViewModel @Inject constructor(
             try {
                 repository.getComments(videoId).collect { result ->
                     result.fold(
-                        onSuccess = { comments ->
+                        onSuccess = { triple ->
+                            val (comments, _, _) = triple
                             val state = _uiState.value as? ShortsUiState.Success ?: return@collect
                             _uiState.value = state.copy(
                                 comments = state.comments + (videoId to comments),

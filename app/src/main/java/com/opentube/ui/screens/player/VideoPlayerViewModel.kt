@@ -39,6 +39,8 @@ sealed interface VideoPlayerUiState {
         val isSubscribed: Boolean = false,
         val currentPosition: Long = 0,
         val comments: List<Comment> = emptyList(),
+        val commentsNextPage: String? = null,
+        val commentsCount: Long = 0,
         val isLoadingComments: Boolean = false,
         val replies: Map<String, List<Comment>> = emptyMap(), // commentId -> replies
         val loadingReplies: Set<String> = emptySet() // Set of comment IDs currently loading replies
@@ -242,7 +244,8 @@ class VideoPlayerViewModel @Inject constructor(
                 title = details.title,
                 uploaderName = details.uploader,
                 thumbnail = details.thumbnailUrl,
-                duration = details.duration
+                duration = details.duration,
+                viewCount = details.views
             )
         )
     }
@@ -371,7 +374,8 @@ class VideoPlayerViewModel @Inject constructor(
                             title = currentState.videoDetails.title,
                             uploaderName = currentState.videoDetails.uploader,
                             thumbnail = currentState.videoDetails.thumbnailUrl,
-                            duration = currentState.videoDetails.duration
+                            duration = currentState.videoDetails.duration,
+                            viewCount = currentState.videoDetails.views
                         )
                     )
                     _uiState.value = currentState.copy(isFavorite = true)
@@ -423,9 +427,12 @@ class VideoPlayerViewModel @Inject constructor(
                 val state = _uiState.value
                 if (state is VideoPlayerUiState.Success) {
                     result.fold(
-                        onSuccess = { comments ->
+                        onSuccess = { triple ->
+                            val (commentsList, nextPage, totalCount) = triple
                             _uiState.value = state.copy(
-                                comments = comments,
+                                comments = commentsList,
+                                commentsNextPage = nextPage,
+                                commentsCount = totalCount,
                                 isLoadingComments = false
                             )
                         },
@@ -443,8 +450,41 @@ class VideoPlayerViewModel @Inject constructor(
     }
     
     fun loadMoreComments() {
-        // TODO: Implementar paginación de comentarios
-        android.util.Log.d("VideoPlayerViewModel", "loadMoreComments() not implemented yet")
+        val state = _uiState.value
+        if (state !is VideoPlayerUiState.Success) return
+        if (state.isLoadingComments) return
+        val nextPage = state.commentsNextPage ?: return
+        
+        viewModelScope.launch {
+            _uiState.value = state.copy(isLoadingComments = true)
+            videoRepository.getMoreComments(videoId, nextPage).collect { result ->
+                val currentState = _uiState.value
+                if (currentState is VideoPlayerUiState.Success) {
+                    result.fold(
+                        onSuccess = { pair ->
+                            val (newComments, newNextPage) = pair
+                            // Check if the current page returned no comments to avoid infinite dummy loads
+                            if (newComments.isEmpty() && newNextPage == nextPage) {
+                                _uiState.value = currentState.copy(
+                                    commentsNextPage = null,
+                                    isLoadingComments = false
+                                )
+                            } else {
+                                _uiState.value = currentState.copy(
+                                    comments = currentState.comments + newComments,
+                                    commentsNextPage = newNextPage,
+                                    isLoadingComments = false
+                                )
+                            }
+                        },
+                        onFailure = { exception ->
+                            android.util.Log.e("VideoPlayerViewModel", "Error loading more comments", exception)
+                            _uiState.value = currentState.copy(isLoadingComments = false)
+                        }
+                    )
+                }
+            }
+        }
     }
     
     fun loadReplies(commentId: String, repliesPage: String) {

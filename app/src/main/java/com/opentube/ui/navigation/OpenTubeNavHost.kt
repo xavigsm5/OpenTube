@@ -210,9 +210,9 @@ fun OpenTubeNavHost(
 
             composable(Screen.Home.route) {
                 HomeScreen(
-                    onVideoClick = { videoId ->
+                    onVideoClick = { videoId, rect ->
                         android.util.Log.d("Navigation", "Home: Expanding video: $videoId")
-                        miniPlayerViewModel.showPlayer(videoId = videoId)
+                        miniPlayerViewModel.showPlayer(videoId = videoId, sourceRect = rect)
                     },
 
                     onSearchClick = {
@@ -247,9 +247,9 @@ fun OpenTubeNavHost(
             ) {
                 SearchScreen(
                     onBackClick = { navController.navigateUp() },
-                    onVideoClick = { videoId ->
+                    onVideoClick = { videoId, rect ->
                         android.util.Log.d("Navigation", "Search: Expanding video: $videoId")
-                        miniPlayerViewModel.showPlayer(videoId = videoId)
+                        miniPlayerViewModel.showPlayer(videoId = videoId, sourceRect = rect)
                     },
                     onChannelClick = { channelId ->
                         navController.navigate(Screen.Channel.createRoute(channelId))
@@ -265,8 +265,8 @@ fun OpenTubeNavHost(
                 com.opentube.ui.screens.playlist.PlaylistScreen(
                     playlistId = playlistId,
                     onBackClick = { navController.navigateUp() },
-                    onVideoClick = { videoId ->
-                        miniPlayerViewModel.showPlayer(videoId = videoId)
+                    onVideoClick = { videoId, rect ->
+                        miniPlayerViewModel.showPlayer(videoId = videoId, sourceRect = rect)
                     }
                 )
             }
@@ -279,8 +279,8 @@ fun OpenTubeNavHost(
                 com.opentube.ui.screens.album.AlbumScreen(
                     albumId = albumId,
                     onBackClick = { navController.navigateUp() },
-                    onVideoClick = { videoId ->
-                        miniPlayerViewModel.showPlayer(videoId = videoId)
+                    onVideoClick = { videoId, rect ->
+                        miniPlayerViewModel.showPlayer(videoId = videoId, sourceRect = rect)
                     }
                 )
             }
@@ -295,8 +295,8 @@ fun OpenTubeNavHost(
                 ChannelScreen(
                     channelId = channelId,
                     onNavigateBack = { navController.navigateUp() },
-                    onVideoClick = { videoId ->
-                        navController.navigate(Screen.VideoPlayer.createRoute(videoId))
+                    onVideoClick = { videoId, rect ->
+                        miniPlayerViewModel.showPlayer(videoId = videoId, sourceRect = rect)
                     }
                 )
             }
@@ -314,8 +314,8 @@ fun OpenTubeNavHost(
             
             composable(Screen.Library.route) {
                 LibraryScreen(
-                    onVideoClick = { videoId ->
-                        navController.navigate(Screen.VideoPlayer.createRoute(videoId))
+                    onVideoClick = { videoId, rect ->
+                        miniPlayerViewModel.showPlayer(videoId = videoId, sourceRect = rect)
                     },
                     onSearchClick = {
                         navController.navigate(Screen.Search.route)
@@ -333,58 +333,129 @@ fun OpenTubeNavHost(
             var dragOffset by remember { mutableFloatStateOf(0f) }
             val isExpanded = miniPlayerState.isExpanded
 
+        // Expand Animation State - OUTSIDE the if block so it persists
+            val expandFraction = remember { androidx.compose.animation.core.Animatable(0f) }
+            
+            LaunchedEffect(isExpanded, miniPlayerState.videoId) {
+                if (isExpanded) {
+                    if (miniPlayerState.sourceRect != null && expandFraction.value == 0f) {
+                        // Wait for 2 frames to ensure initial composition is fully drawn
+                        androidx.compose.runtime.withFrameNanos { }
+                        androidx.compose.runtime.withFrameNanos { }
+                        expandFraction.animateTo(
+                            targetValue = 1f,
+                            animationSpec = androidx.compose.animation.core.spring(
+                                dampingRatio = 0.85f,
+                                stiffness = 350f
+                            )
+                        )
+                    } else {
+                        expandFraction.snapTo(1f)
+                    }
+                } else {
+                    expandFraction.snapTo(0f)
+                }
+            }
+
             if (isExpanded) {
-                // Expanded Full Player with Drag support
+
                 val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-                val screenHeight = with(androidx.compose.ui.platform.LocalDensity.current) { configuration.screenHeightDp.dp.toPx() }
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+                val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
                 
-                // Calculate alpha based on drag (1.0f when full, 0f when fully dragged down)
-                val alpha = (1f - (dragOffset / screenHeight)).coerceIn(0f, 1f)
+                // Calculate alpha based on drag and expansion
+                val scrimAlpha = (1f - (dragOffset / screenHeightPx)).coerceIn(0f, 1f) * expandFraction.value
+
+                // Animation values
+                val sourceRect = miniPlayerState.sourceRect
+                val scale = if (sourceRect != null) {
+                    androidx.compose.ui.util.lerp(sourceRect.width / screenWidthPx, 1f, expandFraction.value)
+                } else 1f
+                
+                val tX = if (sourceRect != null) {
+                    androidx.compose.ui.util.lerp(sourceRect.left, 0f, expandFraction.value)
+                } else 0f
+                
+                val tY = if (sourceRect != null) {
+                    androidx.compose.ui.util.lerp(sourceRect.top, dragOffset, expandFraction.value)
+                } else dragOffset
+                
+                val videoHeightPx = screenWidthPx * (9f / 16f)
+                val clipHeightPx = androidx.compose.ui.util.lerp(videoHeightPx, screenHeightPx, expandFraction.value)
+                val cornerRadius = androidx.compose.ui.util.lerp(12f, 0f, expandFraction.value)
 
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .graphicsLayer {
-                            translationY = dragOffset
-                        }
-                        .background(MaterialTheme.colorScheme.background.copy(alpha = alpha))
+                        .background(MaterialTheme.colorScheme.background.copy(alpha = scrimAlpha))
                 ) {
-                    VideoPlayerScreen(
-                        videoId = miniPlayerState.videoId,
-                        existingPlayer = miniPlayerState.player,
-                        onDrag = { dragY -> dragOffset = dragY },
-                        onNavigateBack = {
-                            dragOffset = 0f
-                            miniPlayerViewModel.showMiniPlayer(
-                                videoId = miniPlayerState.videoId,
-                                title = miniPlayerState.title,
-                                channelName = miniPlayerState.channelName,
-                                thumbnailUrl = miniPlayerState.thumbnailUrl,
-                                isPlaying = miniPlayerState.isPlaying,
-                                player = miniPlayerState.player
-                            )
-                        },
-                        onChannelClick = { channelId ->
-                            dragOffset = 0f
-                            miniPlayerViewModel.hideMiniPlayer()
-                            navController.navigate(Screen.Channel.createRoute(channelId))
-                        },
-                        onVideoClick = { newVideoId ->
-                            dragOffset = 0f
-                            miniPlayerViewModel.showPlayer(newVideoId)
-                        },
-                        onMinimize = { title, channel, thumbnailUrl, isPlaying, player ->
-                            dragOffset = 0f
-                            miniPlayerViewModel.showMiniPlayer(
-                                videoId = miniPlayerState.videoId,
-                                title = title,
-                                channelName = channel,
-                                thumbnailUrl = thumbnailUrl,
-                                isPlaying = isPlaying,
-                                player = player
-                            )
-                        }
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = tX
+                                translationY = tY
+                                clip = true
+                                shape = object : androidx.compose.ui.graphics.Shape {
+                                    override fun createOutline(
+                                        size: androidx.compose.ui.geometry.Size,
+                                        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+                                        density: androidx.compose.ui.unit.Density
+                                    ): androidx.compose.ui.graphics.Outline {
+                                        return androidx.compose.ui.graphics.Outline.Rounded(
+                                            androidx.compose.ui.geometry.RoundRect(
+                                                left = 0f,
+                                                top = 0f,
+                                                right = size.width,
+                                                bottom = clipHeightPx,
+                                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadius * density.density)
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                    ) {
+                        VideoPlayerScreen(
+                            videoId = miniPlayerState.videoId,
+                            existingPlayer = miniPlayerState.player,
+                            onDrag = { dragY -> dragOffset = dragY },
+                            onNavigateBack = {
+                                dragOffset = 0f
+                                miniPlayerViewModel.showMiniPlayer(
+                                    videoId = miniPlayerState.videoId,
+                                    title = miniPlayerState.title,
+                                    channelName = miniPlayerState.channelName,
+                                    thumbnailUrl = miniPlayerState.thumbnailUrl,
+                                    isPlaying = miniPlayerState.isPlaying,
+                                    player = miniPlayerState.player
+                                )
+                            },
+                            onChannelClick = { channelId ->
+                                dragOffset = 0f
+                                miniPlayerViewModel.hideMiniPlayer()
+                                navController.navigate(Screen.Channel.createRoute(channelId))
+                            },
+                            onVideoClick = { newVideoId, rect ->
+                                dragOffset = 0f
+                                miniPlayerViewModel.showPlayer(newVideoId, sourceRect = rect)
+                            },
+                            onMinimize = { title, channel, thumbnailUrl, isPlaying, player ->
+                                dragOffset = 0f
+                                miniPlayerViewModel.showMiniPlayer(
+                                    videoId = miniPlayerState.videoId,
+                                    title = title,
+                                    channelName = channel,
+                                    thumbnailUrl = thumbnailUrl,
+                                    isPlaying = isPlaying,
+                                    player = player
+                                )
+                            }
+                        )
+                    }
                 }
             } else {
                 // Mini Player (Floating PiP)

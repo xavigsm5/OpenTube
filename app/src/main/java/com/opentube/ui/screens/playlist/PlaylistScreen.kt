@@ -23,7 +23,7 @@ import com.opentube.ui.components.VideoCard
 fun PlaylistScreen(
     playlistId: String, // This is actually the URL
     onBackClick: () -> Unit,
-    onVideoClick: (String) -> Unit,
+    onVideoClick: (String, androidx.compose.ui.geometry.Rect?) -> Unit,
     viewModel: PlaylistViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -69,7 +69,8 @@ fun PlaylistScreen(
                         items(state.videos) { video ->
                             VideoCard(
                                 video = video,
-                                onClick = { onVideoClick(video.videoId) }
+                                onClickWithRect = { rect -> onVideoClick(video.videoId, rect) },
+                                onClick = { onVideoClick(video.videoId, null) }
                             )
                         }
                     }

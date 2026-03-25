@@ -59,42 +59,7 @@ fun CommentsSection(
             .fillMaxWidth()
             .padding(16.dp)
     ) {
-        // Encabezado con botón para mostrar/ocultar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { showComments = !showComments }
-                .padding(bottom = if (showComments) 16.dp else 0.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Comentarios",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                if (comments.isNotEmpty()) {
-                    Text(
-                        text = formatCount(comments.size.toLong()),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            
-            Icon(
-                imageVector = if (showComments) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = if (showComments) "Ocultar comentarios" else "Mostrar comentarios",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        
-        // Contenido de comentarios (solo si showComments es true)
-        if (showComments) {
+        // Contenido de comentarios
             if (isLoading && comments.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -120,7 +85,7 @@ fun CommentsSection(
             } else {
                 // Lista de comentarios
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    comments.take(5).forEach { comment ->
+                    comments.forEach { comment ->
                         CommentItem(
                             comment = comment,
                             replies = replies[comment.id] ?: emptyList(),
@@ -129,20 +94,17 @@ fun CommentsSection(
                         )
                     }
                     
-                    if (comments.size > 5) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            FilledTonalButton(onClick = onLoadMore) {
-                                Text("Ver más comentarios (${comments.size})")
-                            }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        FilledTonalButton(onClick = onLoadMore) {
+                            Text("Cargar más comentarios")
                         }
                     }
                 }
-            }
         }
     }
 }

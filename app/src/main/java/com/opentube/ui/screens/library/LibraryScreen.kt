@@ -18,7 +18,7 @@ import com.opentube.ui.components.VideoCard
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
-    onVideoClick: (String) -> Unit,
+    onVideoClick: (String, androidx.compose.ui.geometry.Rect?) -> Unit,
     onSearchClick: () -> Unit = {},
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
@@ -136,7 +136,7 @@ fun LibraryScreen(
 @Composable
 private fun HistoryTab(
     videos: List<com.opentube.data.local.WatchHistoryEntity>,
-    onVideoClick: (String) -> Unit,
+    onVideoClick: (String, androidx.compose.ui.geometry.Rect?) -> Unit,
     onDeleteClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -172,7 +172,7 @@ private fun HistoryTab(
                 items = videos,
                 key = { it.videoId }
             ) { historyItem ->
-                SwipeToDismissBox(
+                CustomSwipeToDismissBox(
                     onDismissed = { onDeleteClick(historyItem.videoId) },
                     content = {
                         VideoCard(
@@ -185,11 +185,12 @@ private fun HistoryTab(
                                 uploaderAvatar = null,
                                 uploadedDate = null,
                                 duration = historyItem.duration,
-                                views = 0,
+                                views = historyItem.viewCount,
                                 uploaderVerified = false,
                                 isShort = false
                             ),
-                            onClick = { onVideoClick(historyItem.videoId) }
+                            onClickWithRect = { rect -> onVideoClick(historyItem.videoId, rect) },
+                            onClick = { onVideoClick(historyItem.videoId, null) }
                         )
                     }
                 )
@@ -201,7 +202,7 @@ private fun HistoryTab(
 @Composable
 private fun FavoritesTab(
     videos: List<com.opentube.data.local.FavoriteEntity>,
-    onVideoClick: (String) -> Unit,
+    onVideoClick: (String, androidx.compose.ui.geometry.Rect?) -> Unit,
     onDeleteClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -237,7 +238,7 @@ private fun FavoritesTab(
                 items = videos,
                 key = { it.videoId }
             ) { favoriteItem ->
-                SwipeToDismissBox(
+                CustomSwipeToDismissBox(
                     onDismissed = { onDeleteClick(favoriteItem.videoId) },
                     content = {
                         VideoCard(
@@ -250,11 +251,12 @@ private fun FavoritesTab(
                                 uploaderAvatar = null,
                                 uploadedDate = null,
                                 duration = favoriteItem.duration,
-                                views = 0,
+                                views = favoriteItem.viewCount,
                                 uploaderVerified = false,
                                 isShort = false
                             ),
-                            onClick = { onVideoClick(favoriteItem.videoId) }
+                            onClickWithRect = { rect -> onVideoClick(favoriteItem.videoId, rect) },
+                            onClick = { onVideoClick(favoriteItem.videoId, null) }
                         )
                     }
                 )
@@ -296,17 +298,17 @@ private fun PlaylistsTab(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SwipeToDismissBox(
+private fun CustomSwipeToDismissBox(
     onDismissed: () -> Unit,
     content: @Composable () -> Unit
 ) {
     var isDismissed by remember { mutableStateOf(false) }
     
     if (!isDismissed) {
-        val dismissState = rememberDismissState(
+        val dismissState = rememberSwipeToDismissBoxState(
             confirmValueChange = { dismissValue ->
-                if (dismissValue == DismissValue.DismissedToStart || 
-                    dismissValue == DismissValue.DismissedToEnd) {
+                if (dismissValue == SwipeToDismissBoxValue.StartToEnd || 
+                    dismissValue == SwipeToDismissBoxValue.EndToStart) {
                     isDismissed = true
                     onDismissed()
                     true
@@ -316,9 +318,9 @@ private fun SwipeToDismissBox(
             }
         )
         
-        SwipeToDismiss(
+        androidx.compose.material3.SwipeToDismissBox(
             state = dismissState,
-            background = {
+            backgroundContent = {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -332,7 +334,7 @@ private fun SwipeToDismissBox(
                     )
                 }
             },
-            dismissContent = { content() }
+            content = { content() }
         )
     }
 }

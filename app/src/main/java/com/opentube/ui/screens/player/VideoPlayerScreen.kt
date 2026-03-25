@@ -15,6 +15,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -64,7 +66,7 @@ fun VideoPlayerScreen(
     videoId: String,
     onNavigateBack: () -> Unit,
     onChannelClick: ((String) -> Unit)? = null,
-    onVideoClick: ((String) -> Unit)? = null,
+    onVideoClick: ((String, androidx.compose.ui.geometry.Rect?) -> Unit)? = null,
     onDrag: (Float) -> Unit = {},
     onMinimize: ((title: String, channel: String, thumbnailUrl: String, isPlaying: Boolean, player: androidx.media3.exoplayer.ExoPlayer?) -> Unit)? = null,
     existingPlayer: androidx.media3.exoplayer.ExoPlayer? = null,
@@ -96,7 +98,8 @@ fun VideoPlayerScreen(
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     var isMinimizing by remember { mutableStateOf(false) }
     var showMoreVideos by remember { mutableStateOf(false) }
-    var showComments by remember { mutableStateOf(false) }
+    var showComments by remember { mutableStateOf(false) } // For landscape panel
+    var showCommentsPanel by remember { mutableStateOf(false) } // For portrait sliding panel
     
     // Flag to skip the first LaunchedEffect(selectedQuality) fire - DisposableEffect handles initial load
     var skipInitialQualityChange by remember { mutableStateOf(true) }
@@ -879,7 +882,7 @@ fun VideoPlayerScreen(
                             onNextVideo = {
                                 if (videoDetails.relatedStreams.isNotEmpty()) {
                                     val nextVideo = videoDetails.relatedStreams.first()
-                                    onVideoClick?.invoke(nextVideo.videoId)
+                                    onVideoClick?.invoke(nextVideo.videoId, null)
                                 }
                             },
                             onPreviousVideo = {
@@ -950,9 +953,13 @@ fun VideoPlayerScreen(
                                         Box(modifier = Modifier.width(280.dp)) {
                                             VideoCard(
                                                 video = relatedVideo,
+                                                onClickWithRect = { rect ->
+                                                    showMoreVideos = false
+                                                    onVideoClick?.invoke(relatedVideo.videoId, rect)
+                                                },
                                                 onClick = { 
                                                     showMoreVideos = false
-                                                    onVideoClick?.invoke(relatedVideo.videoId)
+                                                    onVideoClick?.invoke(relatedVideo.videoId, null)
                                                 }
                                             )
                                         }
@@ -1038,21 +1045,10 @@ fun VideoPlayerScreen(
                                     }
                                     val shareIntent = android.content.Intent.createChooser(sendIntent, null)
                                     context.startActivity(shareIntent)
-                                }
-                            )
-                        }
-                        
-                        // Comments section
-                        item {
-                            CommentsSection(
-                                comments = state.comments,
-                                isLoading = state.isLoadingComments,
-                                onLoadMore = { viewModel.loadMoreComments() },
-                                onLoadReplies = { commentId, repliesPage ->
-                                    viewModel.loadReplies(commentId, repliesPage)
                                 },
-                                replies = state.replies,
-                                loadingReplies = state.loadingReplies
+                                onCommentsClick = { showCommentsPanel = true },
+                                commentCount = state.commentsCount,
+                                featuredComment = state.comments.maxByOrNull { it.likes }
                             )
                         }
                         
@@ -1070,8 +1066,11 @@ fun VideoPlayerScreen(
                         items(videoDetails.relatedStreams.take(20)) { relatedVideo ->
                             VideoCard(
                                 video = relatedVideo,
+                                onClickWithRect = { rect ->
+                                    onVideoClick?.invoke(relatedVideo.videoId, rect)
+                                },
                                 onClick = { 
-                                    onVideoClick?.invoke(relatedVideo.videoId)
+                                    onVideoClick?.invoke(relatedVideo.videoId, null)
                                 },
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                             )
@@ -1079,6 +1078,53 @@ fun VideoPlayerScreen(
                     } // close LazyColumn
                 } // close Box
             } // close if (!isFullscreen)
+            
+            // Portrait Comments Panel (below player)
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !isFullscreen && showCommentsPanel,
+                enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { it }) + androidx.compose.animation.fadeOut()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Comentarios",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        IconButton(onClick = { showCommentsPanel = false }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cerrar comentarios"
+                            )
+                        }
+                    }
+                    Divider()
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        CommentsSection(
+                            comments = state.comments,
+                            isLoading = state.isLoadingComments,
+                            onLoadMore = { viewModel.loadMoreComments() },
+                            onLoadReplies = { commentId, repliesPage -> viewModel.loadReplies(commentId, repliesPage) },
+                            replies = state.replies,
+                        )
+                    }
+                }
+            }
             
             // Settings sheet
             if (showSettingsSheet) {

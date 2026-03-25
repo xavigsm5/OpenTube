@@ -34,7 +34,8 @@ data class MiniPlayerState(
     val isPlaying: Boolean = false,
     val isVisible: Boolean = false,
     val isExpanded: Boolean = false,
-    val player: androidx.media3.exoplayer.ExoPlayer? = null
+    val player: androidx.media3.exoplayer.ExoPlayer? = null,
+    val sourceRect: androidx.compose.ui.geometry.Rect? = null
 )
 
 @Composable

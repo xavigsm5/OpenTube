@@ -22,7 +22,8 @@ class MiniPlayerViewModel @Inject constructor(
         channelName: String = "",
         thumbnailUrl: String = "",
         isPlaying: Boolean = true,
-        player: ExoPlayer? = null
+        player: ExoPlayer? = null,
+        sourceRect: androidx.compose.ui.geometry.Rect? = null
     ) {
         _miniPlayerState.value = MiniPlayerState(
             videoId = videoId,
@@ -32,7 +33,8 @@ class MiniPlayerViewModel @Inject constructor(
             isPlaying = isPlaying,
             isVisible = true,
             isExpanded = true,
-            player = playerManager.player ?: player
+            player = playerManager.player ?: player,
+            sourceRect = sourceRect
         )
     }
 
@@ -43,7 +45,8 @@ class MiniPlayerViewModel @Inject constructor(
         thumbnailUrl: String,
         isPlaying: Boolean = true,
         player: ExoPlayer? = null,
-        isExpanded: Boolean = false
+        isExpanded: Boolean = false,
+        sourceRect: androidx.compose.ui.geometry.Rect? = null
     ) {
         _miniPlayerState.value = MiniPlayerState(
             videoId = videoId,
@@ -53,7 +56,8 @@ class MiniPlayerViewModel @Inject constructor(
             isPlaying = isPlaying,
             isVisible = true,
             isExpanded = isExpanded,
-            player = playerManager.player // Use shared player
+            player = playerManager.player, // Use shared player
+            sourceRect = sourceRect
         )
     }
     

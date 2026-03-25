@@ -14,6 +14,7 @@ data class WatchHistoryEntity(
     val uploaderName: String,
     val thumbnail: String,
     val duration: Long,
+    val viewCount: Long = 0,
     val timestamp: Long = System.currentTimeMillis(),
     val position: Long = 0 // Last watched position in milliseconds
 )
@@ -29,6 +30,7 @@ data class FavoriteEntity(
     val uploaderName: String,
     val thumbnail: String,
     val duration: Long,
+    val viewCount: Long = 0,
     val addedAt: Long = System.currentTimeMillis()
 )
 

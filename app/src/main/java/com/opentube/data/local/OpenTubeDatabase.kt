@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PlaylistVideoEntity::class,
         LikedCommentEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class OpenTubeDatabase : RoomDatabase() {
@@ -57,6 +57,17 @@ abstract class OpenTubeDatabase : RoomDatabase() {
                         likedAt INTEGER NOT NULL
                     )
                 """.trimIndent())
+            }
+        }
+        
+        /**
+         * Migration from version 3 to 4
+         * Adds viewCount column to watch_history and favorites tables
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE watch_history ADD COLUMN viewCount INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE favorites ADD COLUMN viewCount INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

@@ -18,19 +18,38 @@ import com.opentube.data.models.Video
 import com.opentube.utils.formatDuration
 import com.opentube.utils.formatViews
 
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+
 /**
  * Video card component
  */
 @Composable
 fun VideoCard(
     video: Video,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier,
+    onClickWithRect: ((androidx.compose.ui.geometry.Rect) -> Unit)? = null
 ) {
+    var boundsInWindow by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .onGloballyPositioned { coordinates ->
+                boundsInWindow = coordinates.boundsInWindow()
+            }
+            .clickable(onClick = {
+                if (onClickWithRect != null && boundsInWindow != null) {
+                    onClickWithRect(boundsInWindow!!)
+                } else {
+                    onClick()
+                }
+            })
             .padding(vertical = 8.dp)
     ) {
         // Thumbnail with duration overlay
@@ -160,13 +179,25 @@ fun VideoCard(
 @Composable
 fun VideoListItem(
     video: Video,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier,
+    onClickWithRect: ((androidx.compose.ui.geometry.Rect) -> Unit)? = null
 ) {
+    var boundsInWindow by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .onGloballyPositioned { coordinates ->
+                boundsInWindow = coordinates.boundsInWindow()
+            }
+            .clickable(onClick = {
+                if (onClickWithRect != null && boundsInWindow != null) {
+                    onClickWithRect(boundsInWindow!!)
+                } else {
+                    onClick()
+                }
+            })
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {

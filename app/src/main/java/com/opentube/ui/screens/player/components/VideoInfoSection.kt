@@ -2,36 +2,44 @@ package com.opentube.ui.screens.player.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.opentube.ui.screens.player.Comment
 
 @Composable
 fun VideoInfoSection(
     title: String,
+    description: String,
     uploader: String,
     uploaderAvatar: String,
     uploaderVerified: Boolean,
     views: Long,
     likes: Long,
     uploadDate: String,
-    description: String,
     subscriberCount: Long,
     isFavorite: Boolean,
     isSubscribed: Boolean,
@@ -39,88 +47,136 @@ fun VideoInfoSection(
     onSubscribeClick: () -> Unit,
     onChannelClick: () -> Unit,
     onShareClick: () -> Unit,
+    onCommentsClick: () -> Unit,
+    commentCount: Long = 0,
+    featuredComment: Comment? = null,
     modifier: Modifier = Modifier
 ) {
     var isDescriptionExpanded by remember { mutableStateOf(false) }
 
-    Card(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            .padding(vertical = 12.dp)
+            .background(MaterialTheme.colorScheme.background)
     ) {
+        // 1. Title Area
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
-            // Title
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = Int.MAX_VALUE,
-                overflow = TextOverflow.Visible
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    lineHeight = 26.sp
+                ),
+                maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 2,
+                overflow = if (isDescriptionExpanded) TextOverflow.Visible else TextOverflow.Ellipsis
             )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Views and date
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+            Spacer(modifier = Modifier.height(6.dp))
+            
+            // Views, Date and Expandable Description Area
+            Card(
+                onClick = { isDescriptionExpanded = !isDescriptionExpanded },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text(
-                    text = "${formatViews(views)} vistas",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = " • ",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatDate(uploadDate),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "${formatViews(views)} vistas • ${formatDate(uploadDate)}",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (!isDescriptionExpanded) {
+                            Text(
+                                text = " ...más",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    
+                    AnimatedVisibility(visible = isDescriptionExpanded) {
+                        Column {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            val uriHandler = LocalUriHandler.current
+                            val annotatedDescription = parseHtmlDescription(description)
+                            
+                            ClickableText(
+                                text = annotatedDescription,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    lineHeight = 20.sp
+                                ),
+                                onClick = { offset ->
+                                    annotatedDescription.getStringAnnotations("URL", offset, offset)
+                                        .firstOrNull()?.let { annotation ->
+                                            try { uriHandler.openUri(annotation.item) }
+                                            catch (e: Exception) { }
+                                        }
+                                }
+                            )
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Mostrar menos",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
+                }
             }
+        }
 
-            Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-            // Channel info
+        // 2. Channel Info Area
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onChannelClick),
+                    .weight(1f)
+                    .clickable { onChannelClick() },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Channel avatar
                 AsyncImage(
                     model = uploaderAvatar,
                     contentDescription = "Channel avatar",
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(36.dp)
                         .clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Channel name and subscriber count
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = uploader,
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         if (uploaderVerified) {
                             Spacer(modifier = Modifier.width(4.dp))
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = "Verified",
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -130,171 +186,255 @@ fun VideoInfoSection(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-
-                // Subscribe button
-                FilledTonalButton(
-                    onClick = onSubscribeClick,
-                    colors = if (isSubscribed) {
-                        ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    } else {
-                        ButtonDefaults.filledTonalButtonColors()
-                    }
-                ) {
-                    Text(if (isSubscribed) "Suscrito" else "Suscribirse")
+            }
+            
+            // Subscribe Button
+            Button(
+                onClick = onSubscribeClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isSubscribed) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.onSurface,
+                    contentColor = if (isSubscribed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surface
+                ),
+                shape = CircleShape,
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                modifier = Modifier.height(36.dp)
+            ) {
+                Text(
+                    text = if (isSubscribed) "Suscrito" else "Suscribirse",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+                if (isSubscribed) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.NotificationsActive,
+                        contentDescription = "Notificaciones",
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
+        }
 
-            Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-            // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+        // 3. Action Buttons (Scrollable Row)
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item {
+                // Like / Dislike joined pill
+                Row(
+                    modifier = Modifier
+                        .height(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clickable { /* Like Action */ }
+                            .padding(horizontal = 12.dp)
+                            .fillMaxHeight(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.ThumbUp,
+                            contentDescription = "Like",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = formatLikes(likes),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Divider(
+                        modifier = Modifier
+                            .fillMaxHeight(0.6f)
+                            .width(1.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .clickable { /* Dislike Action */ }
+                            .padding(horizontal = 12.dp)
+                            .fillMaxHeight(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.ThumbDown,
+                            contentDescription = "Dislike",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+            
+            item {
+                PillButton(
+                    icon = Icons.Outlined.Share,
+                    text = "Compartir",
+                    onClick = onShareClick
+                )
+            }
+            
+            item {
+                PillButton(
+                    icon = Icons.Outlined.AutoAwesome,
+                    text = "Remix",
+                    onClick = { /* TODO */ }
+                )
+            }
+            
+            item {
+                PillButton(
+                    icon = if (isFavorite) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                    text = "Guardar",
+                    onClick = onFavoriteClick
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 4. Featured Comment Box
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clickable(onClick = onCommentsClick),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
             ) {
-                // Like button (solo mostrar si hay likes disponibles)
-                if (likes > 0) {
-                    AssistChip(
-                        onClick = {},
-                        label = { Text(formatLikes(likes)) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.ThumbUp,
-                                contentDescription = "Like"
-                            )
-                        }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Comentarios",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = formatViews(commentCount),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.UnfoldMore,
+                        contentDescription = "Expandir comentarios",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                // Share button
-                AssistChip(
-                    onClick = onShareClick,
-                    label = { Text("Compartir") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Share"
+                if (featuredComment != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AsyncImage(
+                            model = featuredComment.authorAvatar,
+                            contentDescription = "Avatar",
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
                         )
-                    }
-                )
-
-                // Favorite button
-                AssistChip(
-                    onClick = onFavoriteClick,
-                    label = { Text(if (isFavorite) "Guardado" else "Guardar") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                            tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Description
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { isDescriptionExpanded = !isDescriptionExpanded }
-                        .padding(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        
+                        val cleanText = parseHtmlDescription(featuredComment.text)
                         Text(
-                            text = "Descripción",
-                            style = MaterialTheme.typography.titleSmall
+                            text = cleanText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        Icon(
-                            imageVector = if (isDescriptionExpanded) 
-                                Icons.Default.KeyboardArrowUp 
-                            else 
-                                Icons.Default.KeyboardArrowDown,
-                            contentDescription = if (isDescriptionExpanded) "Collapse" else "Expand"
-                        )
-                    }
-
-                    AnimatedVisibility(visible = isDescriptionExpanded) {
-                        Column {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Divider()
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            val uriHandler = LocalUriHandler.current
-                            val annotatedDescription = parseHtmlDescription(description)
-                            
-                            ClickableText(
-                                text = annotatedDescription,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurface
-                                ),
-                                onClick = { offset ->
-                                    annotatedDescription.getStringAnnotations(
-                                        tag = "URL",
-                                        start = offset,
-                                        end = offset
-                                    ).firstOrNull()?.let { annotation ->
-                                        try {
-                                            uriHandler.openUri(annotation.item)
-                                        } catch (e: Exception) {
-                                            android.util.Log.e("VideoInfo", "Error opening URL", e)
-                                        }
-                                    }
-                                }
-                            )
-                        }
                     }
                 }
             }
         }
+        
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
-private fun formatViews(views: Long): String {
+@Composable
+fun PillButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .height(36.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = text,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = text,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+fun formatViews(views: Long): String {
     return when {
-        views >= 1_000_000 -> String.format("%.1fM", views / 1_000_000.0)
-        views >= 1_000 -> String.format("%.1fK", views / 1_000.0)
+        views >= 1_000_000 -> String.format("%.1f M", views / 1_000_000.0)
+        views >= 1_000 -> String.format("%.1f k", views / 1_000.0)
         else -> views.toString()
     }
 }
 
 private fun formatLikes(likes: Long): String {
+    if (likes == 0L) return "Me gusta"
     return when {
-        likes >= 1_000_000 -> String.format("%.1fM", likes / 1_000_000.0)
-        likes >= 1_000 -> String.format("%.1fK", likes / 1_000.0)
+        likes >= 1_000_000 -> String.format("%.1f M", likes / 1_000_000.0)
+        likes >= 1_000 -> String.format("%.1f k", likes / 1_000.0)
         else -> likes.toString()
     }
 }
 
 private fun formatSubscribers(count: Long): String {
     return when {
-        count >= 1_000_000 -> String.format("%.1fM", count / 1_000_000.0)
-        count >= 1_000 -> String.format("%.1fK", count / 1_000.0)
+        count >= 1_000_000 -> String.format("%.1f M", count / 1_000_000.0)
+        count >= 1_000 -> String.format("%.1f k", count / 1_000.0)
         else -> count.toString()
     }
 }
 
-private fun formatDate(dateString: String): String {
+fun formatDate(dateString: String): String {
     return try {
         if (dateString.isEmpty()) return ""
+        if (dateString.contains("Hace")) return dateString
         
-        // Formato ISO: 2024-11-05T03:00:00Z o 2024-11-05T03:00Z
         if (dateString.contains("T")) {
-            // Extraer solo la fecha (YYYY-MM-DD)
             val datePart = dateString.substringBefore("T")
-            
-            // Convertir a formato más legible (DD/MM/YYYY)
             val parts = datePart.split("-")
             if (parts.size == 3) {
                 "${parts[2]}/${parts[1]}/${parts[0]}"
@@ -309,35 +449,30 @@ private fun formatDate(dateString: String): String {
     }
 }
 
-@Composable
-private fun parseHtmlDescription(html: String) = buildAnnotatedString {
+fun parseHtmlDescription(html: String) = buildAnnotatedString {
     if (html.isEmpty()) {
         append("Sin descripción")
         return@buildAnnotatedString
     }
     
-    // Reemplazar <br> con saltos de línea
     var text = html
         .replace("<br>", "\n")
         .replace("<br/>", "\n")
         .replace("<br />", "\n")
     
-    // Patrón para encontrar links <a href="...">texto</a>
     val linkPattern = """<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1[^>]*>(.*?)</a>""".toRegex(RegexOption.IGNORE_CASE)
     
     var lastIndex = 0
     linkPattern.findAll(text).forEach { matchResult ->
         val (_, url, linkText) = matchResult.destructured
         
-        // Agregar texto antes del link
         val beforeLink = text.substring(lastIndex, matchResult.range.first)
-        append(beforeLink.replace(Regex("<[^>]+>"), "")) // Limpiar otros tags HTML
+        append(beforeLink.replace(Regex("<[^>]+>"), ""))
         
-        // Agregar el link clickeable
         pushStringAnnotation(tag = "URL", annotation = url)
         withStyle(
             style = SpanStyle(
-                color = MaterialTheme.colorScheme.primary,
+                color = Color(0xFFAAAAAA),
                 textDecoration = TextDecoration.Underline
             )
         ) {
@@ -348,7 +483,6 @@ private fun parseHtmlDescription(html: String) = buildAnnotatedString {
         lastIndex = matchResult.range.last + 1
     }
     
-    // Agregar el texto restante
     if (lastIndex < text.length) {
         val remaining = text.substring(lastIndex).replace(Regex("<[^>]+>"), "")
         append(remaining)

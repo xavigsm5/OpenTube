@@ -391,7 +391,7 @@ class VideoRepository @Inject constructor(
     /**
      * Get video comments usando NewPipe
      */
-    fun getComments(videoId: String): Flow<Result<List<com.opentube.ui.screens.player.Comment>>> = flow {
+    fun getComments(videoId: String): Flow<Result<Triple<List<com.opentube.ui.screens.player.Comment>, String?, Long>>> = flow {
         try {
             val url = "https://www.youtube.com/watch?v=$videoId"
             android.util.Log.d("VideoRepository", "Fetching comments for video: $videoId")
@@ -424,11 +424,22 @@ class VideoRepository @Inject constructor(
             
             if (commentsInfo == null) {
                 android.util.Log.d("VideoRepository", "Comments are disabled or unavailable")
-                emit(Result.success(emptyList()))
+                emit(Result.success(Triple(emptyList(), null, 0L)))
                 return@flow
             }
             
-            android.util.Log.d("VideoRepository", "Comments fetched: ${commentsInfo.relatedItems.size}")
+            android.util.Log.d("VideoRepository", "Comments fetched: ${commentsInfo.relatedItems.size}, total: ${commentsInfo.commentsCount}")
+            
+            val totalCommentsCount = commentsInfo.commentsCount.toLong()
+            
+            // Extract the nextPage token if available
+            val nextPageSerialized = try {
+                commentsInfo.nextPage?.let { page ->
+                    com.opentube.data.extractor.PagedResult.serializePage(page)
+                }
+            } catch (e: Exception) {
+                null
+            }
             
             // Convertir los comentarios de NewPipe a nuestro modelo
             val comments = commentsInfo.relatedItems.mapNotNull { commentInfo ->
@@ -459,11 +470,75 @@ class VideoRepository @Inject constructor(
                 }
             }
             
-            emit(Result.success(comments))
+            emit(Result.success(Triple(comments, nextPageSerialized, totalCommentsCount)))
         } catch (e: Exception) {
             android.util.Log.e("VideoRepository", "Error fetching comments", e)
-            // Emitir lista vacía en lugar de error para que la UI muestre "No hay comentarios"
-            emit(Result.success(emptyList()))
+            emit(Result.success(Triple(emptyList(), null, 0L)))
+        }
+    }
+
+    /**
+     * Load more video comments using the next page token
+     */
+    fun getMoreComments(videoId: String, serializedPage: String): Flow<Result<Pair<List<com.opentube.ui.screens.player.Comment>, String?>>> = flow {
+        try {
+            val page = com.opentube.data.extractor.PagedResult.deserializePage(serializedPage)
+            if (page == null) {
+                emit(Result.failure(Exception("Invalid page data for comments")))
+                return@flow
+            }
+            
+            val url = "https://www.youtube.com/watch?v=$videoId"
+            val commentsInfo = withContext(Dispatchers.IO) {
+                try {
+                    org.schabi.newpipe.extractor.comments.CommentsInfo.getMoreItems(
+                        org.schabi.newpipe.extractor.ServiceList.YouTube,
+                        url,
+                        page
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            
+            if (commentsInfo == null) {
+                emit(Result.success(Pair(emptyList(), null)))
+                return@flow
+            }
+            
+            val nextPageSerialized = try {
+                commentsInfo.nextPage?.let { nextPage ->
+                    com.opentube.data.extractor.PagedResult.serializePage(nextPage)
+                }
+            } catch (e: Exception) {
+                null
+            }
+
+            val comments = commentsInfo.items.mapNotNull { commentInfo ->
+                try {
+                    val repliesPageSerialized = try {
+                        commentInfo.replies?.let { repliesPage ->
+                            com.opentube.data.extractor.PagedResult.serializePage(repliesPage)
+                        }
+                    } catch (e: Exception) { null }
+                    
+                    com.opentube.ui.screens.player.Comment(
+                        id = commentInfo.commentId ?: "",
+                        author = commentInfo.uploaderName ?: "Usuario desconocido",
+                        authorAvatar = commentInfo.uploaderAvatars.firstOrNull()?.url ?: "",
+                        text = commentInfo.commentText?.content ?: "",
+                        likes = commentInfo.likeCount.toLong(),
+                        publishedTime = formatCommentDate(commentInfo.uploadDate),
+                        isVerified = commentInfo.isUploaderVerified,
+                        replyCount = commentInfo.replyCount,
+                        repliesPage = repliesPageSerialized
+                    )
+                } catch (e: Exception) { null }
+            }
+            
+            emit(Result.success(Pair(comments, nextPageSerialized)))
+        } catch (e: Exception) {
+            emit(Result.success(Pair(emptyList(), null)))
         }
     }
 
