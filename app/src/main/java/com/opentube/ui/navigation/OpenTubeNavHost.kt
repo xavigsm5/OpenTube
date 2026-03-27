@@ -19,9 +19,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlin.math.roundToInt
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.launch
 import dev.chrisbanes.haze.haze
 import dev.chrisbanes.haze.hazeChild
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -84,10 +88,10 @@ fun OpenTubeNavHost(
                         // Píldora principal
                     Row(
                         modifier = Modifier
-                            .height(68.dp)
+                            .height(56.dp)
                             .clip(CircleShape)
                             .hazeChild(state = hazeState, shape = CircleShape)
-                            .background(Color(0x661A1A1A)) // Glassmorphism translúcido
+                            .background(Color(0x331A1A1A)) // Glassmorphism translúcido
                             .border(1.dp, Color(0x33FFFFFF), CircleShape)
                             .padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -138,10 +142,10 @@ fun OpenTubeNavHost(
                     // Botón Buscar separado
                     Box(
                         modifier = Modifier
-                            .size(68.dp)
+                            .size(56.dp)
                             .clip(CircleShape)
                             .hazeChild(state = hazeState, shape = CircleShape)
-                            .background(Color(0x661A1A1A)) // Mismo estilo glass
+                            .background(Color(0x331A1A1A)) // Mismo estilo glass
                             .border(1.dp, Color(0x33FFFFFF), CircleShape)
                             .clickable {
                                 navController.navigate(Screen.Search.route) {
@@ -502,24 +506,96 @@ fun OpenTubeNavHost(
                     }
                 }
             } else {
-                // Mini Player (floating PiP card at bottom right)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(
-                            bottom = if (showBottomBar) paddingValues.calculateBottomPadding() + 8.dp else 8.dp,
-                            end = 8.dp
+                // Mini Player (floating PiP card)
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val density = androidx.compose.ui.platform.LocalDensity.current
+                    
+                    val playerWidthPx = with(density) { 180.dp.toPx() }
+                    val playerHeightPx = with(density) { 101.dp.toPx() } // 180 * (9/16)
+                    val xPaddingPx = with(density) { 8.dp.toPx() }
+                    val yPaddingPx = with(density) { 8.dp.toPx() }
+                    
+                    val bottomPaddingPx = if (showBottomBar) {
+                        with(density) { (paddingValues.calculateBottomPadding() + 8.dp).toPx() }
+                    } else {
+                        with(density) { 8.dp.toPx() }
+                    }
+
+                    val minX = xPaddingPx
+                    val maxX = constraints.maxWidth - playerWidthPx - xPaddingPx
+                    val minY = yPaddingPx
+                    val maxY = constraints.maxHeight - playerHeightPx - bottomPaddingPx
+
+                    val midX = constraints.maxWidth / 2f
+                    val midY = constraints.maxHeight / 2f
+
+                    val scope = rememberCoroutineScope()
+                    val offsetX = remember { androidx.compose.animation.core.Animatable(maxX) }
+                    val offsetY = remember { androidx.compose.animation.core.Animatable(maxY) }
+                    var isMiniPlayerExpanded by remember { mutableStateOf(false) }
+
+                    LaunchedEffect(Unit) {
+                        offsetX.snapTo(maxX)
+                        offsetY.snapTo(maxY)
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .offset { androidx.compose.ui.unit.IntOffset(offsetX.value.roundToInt(), offsetY.value.roundToInt()) }
+                            .pointerInput(isMiniPlayerExpanded) {
+                                detectDragGestures(
+                                    onDragEnd = {
+                                        scope.launch {
+                                            if (isMiniPlayerExpanded) {
+                                                val targetY = if (offsetY.value < midY) minY else maxY
+                                                offsetY.animateTo(targetY, androidx.compose.animation.core.spring(stiffness = 300f))
+                                                offsetX.animateTo(0f, androidx.compose.animation.core.spring(stiffness = 300f))
+                                            } else {
+                                                val targetX = if (offsetX.value < midX) minX else maxX
+                                                val targetY = if (offsetY.value < midY) minY else maxY
+                                                
+                                                launch { offsetX.animateTo(targetX, androidx.compose.animation.core.spring(stiffness = 300f)) }
+                                                launch { offsetY.animateTo(targetY, androidx.compose.animation.core.spring(stiffness = 300f)) }
+                                            }
+                                        }
+                                    }
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    scope.launch {
+                                        if (isMiniPlayerExpanded) {
+                                            offsetY.snapTo((offsetY.value + dragAmount.y).coerceIn(minY, maxY))
+                                        } else {
+                                            offsetX.snapTo((offsetX.value + dragAmount.x).coerceIn(minX, maxX))
+                                            offsetY.snapTo((offsetY.value + dragAmount.y).coerceIn(minY, maxY))
+                                        }
+                                    }
+                                }
+                            }
+                    ) {
+                        MiniPlayer(
+                            state = miniPlayerState,
+                            onPlayPauseClick = { miniPlayerViewModel.togglePlayPause() },
+                            onClose = { miniPlayerViewModel.closeMiniPlayer() },
+                            onClick = { miniPlayerViewModel.expandPlayer() },
+                            onExpandedChange = { expanded ->
+                                isMiniPlayerExpanded = expanded
+                                scope.launch {
+                                    if (expanded) {
+                                        offsetX.animateTo(0f, androidx.compose.animation.core.spring(stiffness = 300f))
+                                        val targetY = if (offsetY.value < midY) minY else maxY
+                                        offsetY.animateTo(targetY, androidx.compose.animation.core.spring(stiffness = 300f))
+                                    } else {
+                                        val targetX = if (offsetX.value < midX) minX else maxX
+                                        offsetX.animateTo(targetX, androidx.compose.animation.core.spring(stiffness = 300f))
+                                        val targetY = if (offsetY.value < midY) minY else maxY
+                                        offsetY.animateTo(targetY, androidx.compose.animation.core.spring(stiffness = 300f))
+                                    }
+                                }
+                            },
+                            onSeekForward = { miniPlayerViewModel.seekForward() },
+                            onSeekBackward = { miniPlayerViewModel.seekBackward() }
                         )
-                        .navigationBarsPadding()
-                ) {
-                    MiniPlayer(
-                        state = miniPlayerState,
-                        onPlayPauseClick = { miniPlayerViewModel.togglePlayPause() },
-                        onClose = { miniPlayerViewModel.closeMiniPlayer() },
-                        onClick = { miniPlayerViewModel.expandPlayer() },
-                        onSeekForward = { miniPlayerViewModel.seekForward() },
-                        onSeekBackward = { miniPlayerViewModel.seekBackward() }
-                    )
+                    }
                 }
             }
         }
@@ -560,7 +636,7 @@ private fun LiquidGlassNavItem(
                 color = tintColor,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 2.dp)
+                modifier = Modifier.offset(y = (-3).dp)
             )
         }
     }

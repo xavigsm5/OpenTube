@@ -895,15 +895,6 @@ fun VideoPlayerScreen(
                                     )
                                 }
                             },
-                            onShareClick = {
-                                val sendIntent: android.content.Intent = android.content.Intent().apply {
-                                    action = android.content.Intent.ACTION_SEND
-                                    putExtra(android.content.Intent.EXTRA_TEXT, "https://youtu.be/$videoId")
-                                    type = "text/plain"
-                                }
-                                val shareIntent = android.content.Intent.createChooser(sendIntent, null)
-                                context.startActivity(shareIntent)
-                            },
                             isFullscreen = isFullscreen,
                             visible = showControls,
                             videoTitle = videoDetails.title,
@@ -924,6 +915,7 @@ fun VideoPlayerScreen(
                                     }
                                 } ?: onNavigateBack()
                             },
+                            nextVideoThumbnailUrl = videoDetails.relatedStreams.firstOrNull()?.thumbnail,
                             onMoreVideosClick = { 
                                 showMoreVideos = true 
                                 showComments = false
@@ -945,11 +937,11 @@ fun VideoPlayerScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(280.dp) // Adjust height as needed
+                                .wrapContentHeight()
                                 .background(Color.Black.copy(alpha = 0.85f))
                                 .padding(top = 16.dp, bottom = 16.dp)
                         ) {
-                            Column(modifier = Modifier.fillMaxSize()) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -972,7 +964,32 @@ fun VideoPlayerScreen(
                                     }
                                 }
                                 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
+                                
+                                val channelName = videoDetails.uploader
+                                val chips = listOf("Todos", "Contenido de la serie", "De $channelName", "Comedias", "Videos relacionados", "Para ti", "Subidos recientemente")
+                                
+                                androidx.compose.foundation.lazy.LazyRow(
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(chips.size) { index ->
+                                        val isSelected = index == 0
+                                        Surface(
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                            color = if (isSelected) Color.White else Color.White.copy(alpha = 0.15f),
+                                            modifier = Modifier.clickable { /* no-op for visual only */ }
+                                        ) {
+                                            Text(
+                                                text = chips[index],
+                                                color = if (isSelected) Color.Black else Color.White,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                            )
+                                        }
+                                    }
+                                }
                                 
                                 androidx.compose.foundation.lazy.LazyRow(
                                     modifier = Modifier.fillMaxWidth(),
@@ -1181,3 +1198,5 @@ fun VideoPlayerScreen(
     }
 }
 }
+
+

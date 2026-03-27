@@ -17,8 +17,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -32,7 +35,7 @@ fun PlayerControls(
     isPlaying: Boolean,
     currentPosition: Long,
     duration: Long,
-    bufferedPosition: Long,
+    bufferedPosition: Long, isBuffering: Boolean = false,
     onPlayPauseClick: () -> Unit,
     onSeek: (Long) -> Unit,
     onRewind: () -> Unit,
@@ -47,7 +50,7 @@ fun PlayerControls(
     resizeMode: Int = 0,
     onResizeModeClick: () -> Unit = {},
     onBackClick: () -> Unit = {},
-    onShareClick: () -> Unit = {},
+    nextVideoThumbnailUrl: String? = null,
     onNextVideo: () -> Unit = {},
     onPreviousVideo: () -> Unit = {},
     onMoreVideosClick: () -> Unit = {},
@@ -114,13 +117,6 @@ fun PlayerControls(
                 }
                 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onShareClick) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Compartir",
-                            tint = Color.White
-                        )
-                    }
                     IconButton(onClick = { /* CC Action */ }) {
                         Icon(
                             imageVector = Icons.Rounded.ClosedCaption,
@@ -145,47 +141,81 @@ fun PlayerControls(
                         if (isFullscreen) Modifier.fillMaxWidth(0.7f)
                         else Modifier.fillMaxWidth()
                     ),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Previous Video
                 IconButton(
                     onClick = onPreviousVideo,
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier
+                        .size(if (isFullscreen) 64.dp else 56.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.SkipPrevious,
                         contentDescription = "Video Anterior",
                         tint = Color.White,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(if (isFullscreen) 36.dp else 32.dp)
                     )
                 }
+                  Spacer(modifier = Modifier.width(32.dp))
+                  // Play/Pause
+
+                var playPauseScale by remember { mutableStateOf(1f) }
+                LaunchedEffect(isPlaying) {
+                    playPauseScale = 1.3f
+                    kotlinx.coroutines.delay(100)
+                    playPauseScale = 1f
+                }
                 
-                // Play/Pause
+                val animatedScale by androidx.compose.animation.core.animateFloatAsState(
+                    targetValue = playPauseScale,
+                    animationSpec = androidx.compose.animation.core.spring(
+                        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                        stiffness = androidx.compose.animation.core.Spring.StiffnessLow
+                    ), label = "playPauseScale"
+                )
+
                 IconButton(
-                    onClick = onPlayPauseClick,
+                    onClick = { 
+                        onPlayPauseClick()
+                    },
                     modifier = Modifier
-                        .size(64.dp)
-                        .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                        .size(if (isFullscreen) 86.dp else 72.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (isPlaying) "Pausar" else "Reproducir",
-                        tint = Color.White,
-                        modifier = Modifier.size(40.dp)
-                    )
+                    if (isBuffering) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 1.5.dp,
+                            modifier = Modifier.size(if (isFullscreen) 80.dp else 66.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = if (isPlaying) "Pausar" else "Reproducir",
+                            tint = Color.White,
+                            modifier = Modifier
+                                .size(if (isFullscreen) 56.dp else 48.dp)
+                                .scale(animatedScale)
+                        )
+                    }
                 }
-                
+
+                Spacer(modifier = Modifier.width(32.dp))
+
                 // Next Video
                 IconButton(
                     onClick = onNextVideo,
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier
+                        .size(if (isFullscreen) 64.dp else 56.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.SkipNext,
                         contentDescription = "Siguiente Video",
                         tint = Color.White,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(if (isFullscreen) 36.dp else 32.dp)
                     )
                 }
             }
@@ -241,16 +271,26 @@ fun PlayerControls(
                             }
                         }
                     } else {
-                        Text(
-                            text = "${formatDuration(currentPosition)} / ${formatDuration(duration)}",
-                            color = Color.White,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.5f),
+                            shape = CircleShape,
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Text(
+                                text = "${formatDuration(currentPosition)} / ${formatDuration(duration)}",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
                     }
                     
                     IconButton(onClick = onFullscreenClick) {
+                        // Draw simplified arrows vectors
+                        val iconRes = if (isFullscreen) R.drawable.ic_fullscreen_exit_custom else R.drawable.ic_fullscreen_enter_custom
+                        
                         Icon(
-                            imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                            painter = painterResource(id = iconRes),
                             contentDescription = if (isFullscreen) "Salir de pantalla completa" else "Pantalla completa",
                             tint = Color.White
                         )
@@ -283,58 +323,50 @@ fun PlayerControls(
                                     tint = Color.White
                                 )
                             }
-                            // Share Button
-                            IconButton(onClick = onShareClick) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = "Compartir",
-                                    tint = Color.White
-                                )
-                            }
                         }
                         
-                        // Más Videos Button - stacked rectangles icon
-                        Row(
+                        // Más Videos Button featuring next video thumbnail
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.Black.copy(alpha = 0.5f),
                             modifier = Modifier
                                 .clickable(onClick = onMoreVideosClick)
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                .height(48.dp)
                         ) {
-                            // Stacked rectangles icon
-                            Box(
-                                modifier = Modifier.size(28.dp),
-                                contentAlignment = Alignment.Center
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(start = 16.dp, end = 6.dp)
                             ) {
-                                // Back rectangle (offset)
-                                Box(
-                                    modifier = Modifier
-                                        .size(width = 18.dp, height = 14.dp)
-                                        .offset(x = 3.dp, y = (-3).dp)
-                                        .border(1.5.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(3.dp))
+                                Text(
+                                    text = "Más videos",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodyMedium
                                 )
-                                // Middle rectangle
-                                Box(
-                                    modifier = Modifier
-                                        .size(width = 18.dp, height = 14.dp)
-                                        .offset(x = 0.dp, y = 0.dp)
-                                        .border(1.5.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(3.dp))
-                                )
-                                // Front rectangle
-                                Box(
-                                    modifier = Modifier
-                                        .size(width = 18.dp, height = 14.dp)
-                                        .offset(x = (-3).dp, y = 3.dp)
-                                        .border(1.5.dp, Color.White, RoundedCornerShape(3.dp))
-                                        .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(3.dp))
-                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                
+                                // Thumbnail Circle/Rectangle
+                                if (!nextVideoThumbnailUrl.isNullOrEmpty()) {
+                                    coil.compose.AsyncImage(
+                                        model = nextVideoThumbnailUrl,
+                                        contentDescription = "Siguiente Video",
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(width = 64.dp, height = 36.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .border(1.5.dp, Color.White, RoundedCornerShape(8.dp))
+                                    )
+                                } else {
+                                    // Placeholder if no thumbnail
+                                    Box(
+                                        modifier = Modifier
+                                            .size(width = 64.dp, height = 36.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color.DarkGray)
+                                            .border(1.5.dp, Color.White, RoundedCornerShape(8.dp))
+                                    )
+                                }
                             }
-                            Text(
-                                text = "Más videos",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
                         }
                     }
                 }
@@ -347,7 +379,7 @@ fun PlayerControls(
 fun VideoProgressBar(
     currentPosition: Long,
     duration: Long,
-    bufferedPosition: Long,
+    bufferedPosition: Long, isBuffering: Boolean = false,
     isLive: Boolean = false,
     onSeek: (Long) -> Unit
 ) {
@@ -376,3 +408,9 @@ private fun formatDuration(totalSeconds: Long): String {
         String.format("%d:%02d", minutes, remainingSeconds)
     }
 }
+
+
+
+
+
+

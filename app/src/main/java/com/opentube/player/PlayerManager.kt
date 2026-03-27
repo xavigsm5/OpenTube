@@ -36,7 +36,7 @@ class PlayerManager @Inject constructor(
 
                 _player = ExoPlayer.Builder(context)
                     .setLoadControl(loadControl)
-                    .build()
+                    .build().apply { playWhenReady = true }
             }
             return _player!!
         }
@@ -138,3 +138,4 @@ class PlayerManager @Inject constructor(
         _cachedVideoDetails = null
     }
 }
+

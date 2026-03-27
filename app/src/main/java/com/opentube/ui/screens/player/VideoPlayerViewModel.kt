@@ -238,6 +238,9 @@ class VideoPlayerViewModel @Inject constructor(
     }
     
     private suspend fun saveToHistory(details: VideoDetails) {
+        val existingEntry = watchHistoryDao.getHistoryEntry(videoId)
+        val finalViews = if (details.views > 0) details.views else (existingEntry?.viewCount ?: 0)
+        
         watchHistoryDao.insertHistory(
             WatchHistoryEntity(
                 videoId = videoId,
@@ -245,7 +248,9 @@ class VideoPlayerViewModel @Inject constructor(
                 uploaderName = details.uploader,
                 thumbnail = details.thumbnailUrl,
                 duration = details.duration,
-                viewCount = details.views
+                viewCount = finalViews,
+                position = existingEntry?.position ?: 0,
+                timestamp = System.currentTimeMillis()
             )
         )
     }
@@ -555,8 +560,54 @@ class VideoPlayerViewModel @Inject constructor(
         playerManager.setVideoId(videoId)
     }
 
+    fun updateRelatedVideos(newVideos: List<com.opentube.data.models.Video>) {
+        val currentState = _uiState.value
+        if (currentState is VideoPlayerUiState.Success) {
+            val updatedDetails = currentState.videoDetails.copy(relatedStreams = newVideos)
+            _uiState.value = currentState.copy(videoDetails = updatedDetails)
+        }
+    }
+
+    fun loadRelatedVideosForTag(query: String) {
+        viewModelScope.launch {
+            try {
+                videoRepository.search(query).collect { result ->
+                    if (result.isSuccess) {
+                        val searchResults = result.getOrNull()
+                        val videos = searchResults?.items?.filter { it.type == "stream" }?.map { item ->
+                            val parsedVideoId = if (item.url.contains("?v=")) item.url.substringAfterLast("?v=") else item.url.substringAfterLast("/")
+                            com.opentube.data.models.Video(
+                                url = item.url,
+                                title = item.title ?: item.name ?: "",
+                                thumbnail = item.thumbnail,
+                                uploaderName = item.uploaderName ?: "",
+                                uploaderUrl = item.uploaderUrl,
+                                uploaderAvatar = item.uploaderAvatar,
+                                uploadedDate = item.uploadedDate,
+                                duration = item.duration ?: 0L,
+                                views = item.views ?: 0L,
+                                uploaderVerified = item.uploaderVerified ?: false,
+                                isShort = false
+                            )
+                        } ?: emptyList()
+
+                        val currentState = _uiState.value
+                        if (currentState is VideoPlayerUiState.Success) {
+                            val updatedDetails = currentState.videoDetails.copy(relatedStreams = videos)
+                            _uiState.value = currentState.copy(videoDetails = updatedDetails)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         sponsorBlockJob?.cancel()
     }
 }
+
+

@@ -43,6 +43,7 @@ fun MiniPlayer(
     onPlayPauseClick: () -> Unit,
     onClose: () -> Unit,
     onClick: () -> Unit,
+    onExpandedChange: (Boolean) -> Unit = {},
     onSeekForward: () -> Unit = {},
     onSeekBackward: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -78,9 +79,11 @@ fun MiniPlayer(
                         // Second click: open full player
                         onClick()
                         isLocalExpanded = false
+                        onExpandedChange(false)
                     } else {
                         // First click: expand mini player
                         isLocalExpanded = true
+                        onExpandedChange(true)
                     }
                 }
         ) {
@@ -141,6 +144,7 @@ fun MiniPlayer(
                 IconButton(
                     onClick = {
                         isLocalExpanded = false
+                        onExpandedChange(false)
                         onClose()
                     },
                     modifier = Modifier

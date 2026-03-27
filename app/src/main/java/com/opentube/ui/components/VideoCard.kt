@@ -161,8 +161,10 @@ fun VideoCard(
                 
                 Text(
                     text = buildString {
-                        append(formatViews(video.views))
-                        append(" • ")
+                        if (video.views >= 0) {
+                            append(formatViews(video.views))
+                            append(" • ")
+                        }
                         append(com.opentube.util.DateFormatter.formatUploadDate(video.uploadedDate))
                     },
                     style = MaterialTheme.typography.bodySmall,
@@ -251,7 +253,13 @@ fun VideoListItem(
             )
             
             Text(
-                text = "${formatViews(video.views)} • ${com.opentube.util.DateFormatter.formatUploadDate(video.uploadedDate)}",
+                text = buildString {
+                    if (video.views >= 0) {
+                        append(formatViews(video.views))
+                        append(" • ")
+                    }
+                    append(com.opentube.util.DateFormatter.formatUploadDate(video.uploadedDate))
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
