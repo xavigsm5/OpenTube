@@ -65,8 +65,7 @@ fun OpenTubeNavHost(
     val showBottomBar = currentDestination?.route in listOf(
         Screen.Home.route,
         Screen.Subscriptions.route,
-        Screen.Library.route,
-        Screen.Settings.route
+        Screen.Library.route
     ) && !miniPlayerState.isExpanded
     
     // Hide mini player when on video player screen
@@ -526,6 +525,8 @@ fun OpenTubeNavHost(
                     val minY = yPaddingPx
                     val maxY = constraints.maxHeight - playerHeightPx - bottomPaddingPx
 
+                    val maxExpandedY = constraints.maxHeight - (constraints.maxWidth * (9f / 16f)) - bottomPaddingPx
+
                     val midX = constraints.maxWidth / 2f
                     val midY = constraints.maxHeight / 2f
 
@@ -547,13 +548,13 @@ fun OpenTubeNavHost(
                                     onDragEnd = {
                                         scope.launch {
                                             if (isMiniPlayerExpanded) {
-                                                val targetY = if (offsetY.value < midY) minY else maxY
+                                                val targetY = if (offsetY.value < midY) minY else maxExpandedY
                                                 offsetY.animateTo(targetY, androidx.compose.animation.core.spring(stiffness = 300f))
                                                 offsetX.animateTo(0f, androidx.compose.animation.core.spring(stiffness = 300f))
                                             } else {
                                                 val targetX = if (offsetX.value < midX) minX else maxX
                                                 val targetY = if (offsetY.value < midY) minY else maxY
-                                                
+
                                                 launch { offsetX.animateTo(targetX, androidx.compose.animation.core.spring(stiffness = 300f)) }
                                                 launch { offsetY.animateTo(targetY, androidx.compose.animation.core.spring(stiffness = 300f)) }
                                             }
@@ -563,7 +564,7 @@ fun OpenTubeNavHost(
                                     change.consume()
                                     scope.launch {
                                         if (isMiniPlayerExpanded) {
-                                            offsetY.snapTo((offsetY.value + dragAmount.y).coerceIn(minY, maxY))
+                                            offsetY.snapTo((offsetY.value + dragAmount.y).coerceIn(minY, maxExpandedY))
                                         } else {
                                             offsetX.snapTo((offsetX.value + dragAmount.x).coerceIn(minX, maxX))
                                             offsetY.snapTo((offsetY.value + dragAmount.y).coerceIn(minY, maxY))
@@ -582,7 +583,7 @@ fun OpenTubeNavHost(
                                 scope.launch {
                                     if (expanded) {
                                         offsetX.animateTo(0f, androidx.compose.animation.core.spring(stiffness = 300f))
-                                        val targetY = if (offsetY.value < midY) minY else maxY
+                                        val targetY = if (offsetY.value < midY) minY else maxExpandedY
                                         offsetY.animateTo(targetY, androidx.compose.animation.core.spring(stiffness = 300f))
                                     } else {
                                         val targetX = if (offsetX.value < midX) minX else maxX
@@ -617,7 +618,7 @@ private fun LiquidGlassNavItem(
         modifier = Modifier
             .clip(CircleShape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -628,15 +629,14 @@ private fun LiquidGlassNavItem(
                 imageVector = icon,
                 contentDescription = label,
                 tint = tintColor,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(24.dp)
             )
             // Mostrar texto siempre, no solo cuando está seleccionado
             Text(
                 text = label,
                 color = tintColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.offset(y = (-3).dp)
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
             )
         }
     }

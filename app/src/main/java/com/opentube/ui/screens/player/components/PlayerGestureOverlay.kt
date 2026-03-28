@@ -64,6 +64,11 @@ private fun GestureHandler(
     var seekForward by remember { mutableStateOf(true) }
     var seekCount by remember { mutableIntStateOf(0) } // To trigger animation restart
 
+    val currentOnSingleTap by rememberUpdatedState(onSingleTap)
+    val currentOnDoubleTapSeek by rememberUpdatedState(onDoubleTapSeek)
+    val currentOnDrag by rememberUpdatedState(onDrag)
+    val currentOnSwipeDown by rememberUpdatedState(onSwipeDown)
+
     val context = LocalContext.current
     
     // Animation states
@@ -91,15 +96,15 @@ private fun GestureHandler(
             .fillMaxSize()
             .pointerInput(Unit) {
                 detectTapGestures(
-                    onTap = { onSingleTap() },
+                    onTap = { currentOnSingleTap() },
                     onDoubleTap = { offset ->
                         val isRight = offset.x > size.width / 2
                         if (isRight) {
                             seekForward = true
-                            onDoubleTapSeek(10)
+                            currentOnDoubleTapSeek(10)
                         } else {
                             seekForward = false
-                            onDoubleTapSeek(-10)
+                            currentOnDoubleTapSeek(-10)
                         }
                         showSeekAnim = true
                         seekCount++
@@ -116,15 +121,16 @@ private fun GestureHandler(
                         accumulatedDragY += dragAmount
                         if (accumulatedDragY < 0f) accumulatedDragY = 0f
                         
-                        onDrag(accumulatedDragY)
+                        currentOnDrag(accumulatedDragY)
                     },
                     onDragEnd = {
-                        // Threshold for swipe down (e.g., 300px)
-                        if (accumulatedDragY > 300f) {
-                            onSwipeDown()
+                        // Threshold for swipe down (e.g., 50px)
+                        if (accumulatedDragY > 50f) {
+                            currentOnSwipeDown()
+                            currentOnDrag(0f)
                         } else {
                             // Cancel animation (snap back)
-                            onDrag(0f)
+                            currentOnDrag(0f)
                         }
                         accumulatedDragY = 0f
                     }

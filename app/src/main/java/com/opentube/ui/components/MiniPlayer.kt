@@ -50,7 +50,19 @@ fun MiniPlayer(
 ) {
     // Track expanded local state: first click expands, second click opens full player
     var isLocalExpanded by remember { mutableStateOf(false) }
-    
+
+    // Prevent accidental clicks just after shrinking/swiping down
+    var canClick by remember { mutableStateOf(false) }
+    LaunchedEffect(state.isVisible) {
+        if (state.isVisible) {
+            canClick = false
+            kotlinx.coroutines.delay(400)
+            canClick = true
+        } else {
+            canClick = false
+        }
+    }
+
     AnimatedVisibility(
         visible = state.isVisible,
         enter = slideInVertically(
@@ -74,7 +86,7 @@ fun MiniPlayer(
                 )
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color.Black)
-                .clickable {
+                .clickable(enabled = canClick) {
                     if (isLocalExpanded) {
                         // Second click: open full player
                         onClick()

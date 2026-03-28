@@ -111,33 +111,43 @@ fun VideoPlayerScreen(
     val isFullscreen = (uiState as? VideoPlayerUiState.Success)?.playerSettings?.isFullscreen ?: false
     
     // Gestionar orientación y barras del sistema según modo pantalla completa
-    LaunchedEffect(isFullscreen) {
+    DisposableEffect(isFullscreen) {
         activity?.requestedOrientation = if (isFullscreen) {
-            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         } else {
             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
-        
+
         // Ocultar/mostrar barras del sistema en pantalla completa
         activity?.window?.let { window ->
             WindowCompat.setDecorFitsSystemWindows(window, false)
-            
+
             val insetsController = WindowCompat.getInsetsController(window, window.decorView)
             insetsController?.apply {
                 if (isFullscreen) {
                     hide(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.navigationBars())
                     systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                    
+
                     // Extend content behind ALL system bars (eliminates black bar)
                     @Suppress("DEPRECATION")
                     window.addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                 } else {
                     show(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.navigationBars())
-                    
+
                     // Remove fullscreen flags
                     @Suppress("DEPRECATION")
                     window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                 }
+            }
+        }
+        
+        onDispose {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            activity?.window?.let { window ->
+                val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+                insetsController?.show(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.navigationBars())
+                @Suppress("DEPRECATION")
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
             }
         }
     }
